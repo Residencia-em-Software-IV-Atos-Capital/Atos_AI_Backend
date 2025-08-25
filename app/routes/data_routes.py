@@ -49,3 +49,4 @@ async def get_csv_report(request: QueryRequest):
     buffer.seek(0)
     
     return StreamingResponse(buffer, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=report.csv"})
+
