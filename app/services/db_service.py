@@ -1,32 +1,30 @@
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import inspect, text
+from app.core.db_connector import engine
 from fastapi import HTTPException
 
-def get_database_schema(db_url: str) -> str:
-    """Extrai e formata o esquema do banco de dados usando SQLAlchemy."""
+def get_database_schema(schema: str = "unit") -> str:
     try:
-        engine = create_engine(db_url)
         inspector = inspect(engine)
-        table_names = inspector.get_table_names()
+        table_names = inspector.get_table_names(schema=schema)
         schema_string = ""
         for table_name in table_names:
-            schema_string += f"Tabela `{table_name}`:\n"
-            columns = inspector.get_columns(table_name)
+            schema_string += f"Tabela `{schema}.{table_name}`:\n"
+            columns = inspector.get_columns(table_name, schema=schema)
             for column in columns:
                 column_type = str(column['type']).upper()
                 schema_string += f"- `{column['name']}` ({column_type})\n"
             schema_string += "\n"
         return schema_string
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erro de conexão ou ao extrair o esquema: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {e}")
 
-def execute_sql_query(db_url: str, sql_query: str) -> list:
-    """Executa a consulta SQL e retorna os dados como uma lista de dicionários."""
+
+def execute_sql_query(sql_query: str) -> list:
     try:
-        engine = create_engine(db_url)
         with engine.connect() as connection:
             result = connection.execute(text(sql_query))
             columns = result.keys()
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
         return rows
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao executar a consulta SQL: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {e}")
