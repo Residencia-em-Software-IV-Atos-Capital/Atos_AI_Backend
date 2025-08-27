@@ -16,13 +16,10 @@ async def analyze_data(request: QueryRequest):
     db_schema = get_database_schema(request.db_connection_string)
     ai_response = generate_ai_response(request.user_question, db_schema)
     
-    # A IA pode recomendar um relatório, que precisa de um endpoint diferente
-    if ai_response.visualization_type == "report":
-        # Poderíamos ter uma lógica mais complexa aqui
-        pass
-
+    # Executa a consulta SQL retornada pela IA
     data = execute_sql_query(request.db_connection_string, ai_response.sql_query)
     
+    # Retorna a resposta completa com os dados e as informações de visualização
     return {
         "data": data,
         "visualization_type": ai_response.visualization_type,
