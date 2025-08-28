@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: fastapi-on-render
+    env: python
+    plan: free
+    branch: backup-api     # troque para "main" se for o seu caso
+    autoDeploy: true
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn -k uvicorn.workers.UvicornWorker app.main:app"
+    healthCheckPath: "/health"

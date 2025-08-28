@@ -3,7 +3,7 @@ from typing import Optional
 
 class QueryRequest(BaseModel):
     user_question: str
-    db_connection_string: str
+    # db_connection_string: str
 
 class AIResponseSchema(BaseModel):
     sql_query: str

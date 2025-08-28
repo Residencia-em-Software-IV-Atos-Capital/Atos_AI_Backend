@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from fastapi import APIRouter
 from app.models.request_models import QueryRequest
 from app.services.ai_service import generate_ai_response
@@ -6,6 +8,16 @@ import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
 
+# Carrega as variáveis de ambiente do arquivo .env
+load_dotenv()
+
+# Obtém a string de conexão da variável de ambiente
+db_connection_string = os.getenv("DATABASE_URL")
+
+# Verifica se a string de conexão foi carregada
+if not db_connection_string:
+    raise ValueError("A variável de ambiente 'DATABASE_URL' não está definida.")
+
 router = APIRouter()
 
 @router.post("/analyze")
@@ -13,11 +25,11 @@ async def analyze_data(request: QueryRequest):
     """
     Endpoint principal que recebe a pergunta e retorna os dados formatados para visualização.
     """
-    db_schema = get_database_schema(request.db_connection_string)
+    db_schema = get_database_schema(db_connection_string)
     ai_response = generate_ai_response(request.user_question, db_schema)
     
-    # Executa a consulta SQL retornada pela IA
-    data = execute_sql_query(request.db_connection_string, ai_response.sql_query)
+    # Executa a consulta SQL usando a string do .env
+    data = execute_sql_query(db_connection_string, ai_response.sql_query)
     
     # Retorna a resposta completa com os dados e as informações de visualização
     return {
@@ -34,11 +46,11 @@ async def get_csv_report(request: QueryRequest):
     """
     Endpoint para gerar um relatório CSV.
     """
-    db_schema = get_database_schema(request.db_connection_string)
+    db_schema = get_database_schema(db_connection_string)
     ai_response = generate_ai_response(request.user_question, db_schema)
     
-    # A IA forneceu a query, agora a executamos
-    data = execute_sql_query(request.db_connection_string, ai_response.sql_query)
+    # A IA forneceu a query, agora a executamos usando a string do .env
+    data = execute_sql_query(db_connection_string, ai_response.sql_query)
 
     df = pd.DataFrame(data)
     buffer = io.StringIO()
