@@ -5,5 +5,5 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 pandas
-pymssql
+pyodbc
 gunicorn
