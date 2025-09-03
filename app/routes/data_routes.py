@@ -7,6 +7,8 @@ from app.services.db_service import get_database_schema, execute_sql_query
 import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
+from flask import Flask, jsonify
+from app.models import request_models
 
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -58,3 +60,27 @@ async def get_csv_report(request: QueryRequest):
     buffer.seek(0)
     
     return StreamingResponse(buffer, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=report.csv"})
+
+app = Flask(__name__)
+
+def kpi_calculate():
+    try:
+        df = pd.DataFrame(request_models.py)
+        
+        df['lucro'] = df['x_axis'] - df['y_axis']
+        total_profit = df['lucro'].sum() 
+        
+        return {'Lucro final': float(round(total_profit, 2))}           
+    except FileNotFoundError:
+        return 'Arquivo não encontrado'
+    except Exception as e:
+        return f'Error: Ocorreu um erro {e}'
+    
+@app.route('/KPI/PROFIT', methods=['GET'])
+def get_kpi_profit():
+    kpi_data = kpi_calculate()
+    
+    return jsonify(kpi_data)
+
+if __name__ == '__main__':
+    app.run(debug=True)
