@@ -1,14 +1,13 @@
-import os
-from dotenv import load_dotenv
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 from app.models.request_models import QueryRequest
 from app.services.ai_service import generate_ai_response
-from app.services.db_service import get_database_schema, execute_sql_query
+from app.services.db_service import execute_sql_query
 import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
-from flask import Flask, jsonify
-from app.models import request_models
+from dotenv import load_dotenv
+import os
 
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -23,17 +22,12 @@ if not db_connection_string:
 router = APIRouter()
 
 @router.post("/analyze")
-async def analyze_data(request: QueryRequest):
-    """
-    Endpoint principal que recebe a pergunta e retorna os dados formatados para visualização.
-    """
-    db_schema = get_database_schema(db_connection_string)
-    ai_response = generate_ai_response(request.user_question, db_schema)
+async def analyze_data(body: QueryRequest, request: Request):
+    db_schema = request.app.state.db_schema
+    ai_response = generate_ai_response(body.user_question, db_schema)
     
-    # Executa a consulta SQL usando a string do .env
-    data = execute_sql_query(db_connection_string, ai_response.sql_query)
+    data = execute_sql_query(ai_response.sql_query)
     
-    # Retorna a resposta completa com os dados e as informações de visualização
     return {
         "data": data,
         "visualization_type": ai_response.visualization_type,
@@ -43,16 +37,14 @@ async def analyze_data(request: QueryRequest):
         "value": ai_response.value,
     }
 
+
 @router.post("/report/csv")
-async def get_csv_report(request: QueryRequest):
-    """
-    Endpoint para gerar um relatório CSV.
-    """
-    db_schema = get_database_schema(db_connection_string)
-    ai_response = generate_ai_response(request.user_question, db_schema)
+async def get_csv_report(body: QueryRequest, request: Request):
+
+    db_schema = request.app.state.db_schema
+    ai_response = generate_ai_response(body.user_question, db_schema)
     
-    # A IA forneceu a query, agora a executamos usando a string do .env
-    data = execute_sql_query(db_connection_string, ai_response.sql_query)
+    data = execute_sql_query(ai_response.sql_query)
 
     df = pd.DataFrame(data)
     buffer = io.StringIO()
@@ -60,27 +52,3 @@ async def get_csv_report(request: QueryRequest):
     buffer.seek(0)
     
     return StreamingResponse(buffer, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=report.csv"})
-
-app = Flask(__name__)
-
-def kpi_calculate():
-    try:
-        df = pd.DataFrame(request_models.py)
-        
-        df['lucro'] = df['x_axis'] - df['y_axis']
-        total_profit = df['lucro'].sum() 
-        
-        return {'Lucro final': float(round(total_profit, 2))}           
-    except FileNotFoundError:
-        return 'Arquivo não encontrado'
-    except Exception as e:
-        return f'Error: Ocorreu um erro {e}'
-    
-@app.route('/KPI/PROFIT', methods=['GET'])
-def get_kpi_profit():
-    kpi_data = kpi_calculate()
-    
-    return jsonify(kpi_data)
-
-if __name__ == '__main__':
-    app.run(debug=True)
