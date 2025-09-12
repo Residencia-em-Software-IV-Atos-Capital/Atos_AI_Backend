@@ -149,6 +149,17 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
         "label": null,
         "value": null
     }}
+
+    Pergunta do usuário: "Mostre as vendas totais por categoria 'Eletrônicos', 'Acessórios' e 'Informática' do mês de julho de 2025. Me entregue no formato de gráfico de barras."
+    {{
+        "sql_query": "SELECT cp.NomeCategoria, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.CategoriasProdutos AS cp JOIN dbproinfo.unit.Produtos AS p ON cp.CategoriaID = p.CategoriaID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID JOIN dbproinfo.unit.PedidosVenda AS pv ON ipv.PedidoID = pv.PedidoID WHERE MONTH(pv.DataPedido) = 7 AND YEAR(pv.DataPedido) = 2025 AND cp.NomeCategoria IN ('Eletrônicos', 'Acessórios', 'Informática') GROUP BY cp.NomeCategoria ORDER BY total_vendas DESC",
+        "visualization_type": "bar",
+        "x_axis": "NomeCategoria",
+        "y_axis": "total_vendas",
+        "label": null,
+        "value": null
+    }}
+
     ```
     
     ### Início da Sua Tarefa
