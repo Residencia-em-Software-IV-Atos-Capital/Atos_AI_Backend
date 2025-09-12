@@ -23,12 +23,14 @@ router = APIRouter()
 
 @router.post("/analyze")
 async def analyze_data(body: QueryRequest, request: Request):
-    db_schema = request.app.state.db_schema
+    db_schema = db_connection_string
     ai_response = generate_ai_response(body.user_question, db_schema)
     
-    data = execute_sql_query(ai_response.sql_query)
+    data = execute_sql_query(db_connection_string, ai_response.sql_query)
     
     return {
+        "message": ai_response.message,
+        "query": ai_response.sql_query,
         "data": data,
         "visualization_type": ai_response.visualization_type,
         "x_axis": ai_response.x_axis,

@@ -6,6 +6,7 @@ class QueryRequest(BaseModel):
     # db_connection_string: str
 
 class AIResponseSchema(BaseModel):
+    message: str
     sql_query: str
     visualization_type: Optional[str]
     x_axis: Optional[str]
