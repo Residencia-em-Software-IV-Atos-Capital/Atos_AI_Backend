@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from app.models.request_models import QueryRequest
-from app.services.ai_service import generate_ai_response
-from app.services.db_service import execute_sql_query
+from models.request_models import QueryRequest
+from services.ai_service import generate_ai_response
+from services.db_service import execute_sql_query
 import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 import os
+
 
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
