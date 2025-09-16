@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from models.request_models import QueryRequest
-from services.ai_service import generate_ai_response
-from services.db_service import execute_sql_query
+# from models.request_models import QueryRequest
+from app.models.request_models import QueryRequest
+from app.services.ai_service import generate_ai_response
+from app.services.db_service import execute_sql_query
 import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
@@ -60,10 +61,10 @@ async def get_kpi_report(body: QueryRequest, request: Request):
     Gera um valor de KPI (Key Performance Indicator)
     a partir de uma pergunta do usuário.
     """
-    db_schema = request.app.state.db_schema
-    ai_response = generate_ai_response(body.user_question, db_schema)
+    # db_schema = request.app.state.db_schema
+    # ai_response = generate_ai_response(body.user_question, db_schema)
 
-    data = execute_sql_query(ai_response.sql_query)
+    data = execute_sql_query(body.sql_query)
     
     if not data or not data[0]:
         raise HTTPException(status_code=404, detail="No data found for the KPI.")
@@ -73,7 +74,7 @@ async def get_kpi_report(body: QueryRequest, request: Request):
 
     return {
         "kpi_value": kpi_value,
-        "label": ai_response.label,
+        "label": body.label,
     }
 
 
@@ -82,15 +83,15 @@ async def get_bar_chart_data(body: QueryRequest, request: Request):
     """
     Gera dados para um gráfico de barras a partir de uma pergunta do usuário.
     """
-    db_schema = request.app.state.db_schema
-    ai_response = generate_ai_response(body.user_question, db_schema)
+    # db_schema = request.app.state.db_schema
+    # ai_response = generate_ai_response(body.user_question, db_schema)
 
-    data = execute_sql_query(ai_response.sql_query)
+    data = execute_sql_query(body.sql_query)
     
     return {
         "data": data,
-        "x_axis": ai_response.x_axis,
-        "y_axis": ai_response.y_axis,
+        "x_axis": body.x_axis,
+        "y_axis": body.y_axis,
     }
 
 
@@ -99,13 +100,13 @@ async def get_pie_chart_data(body: QueryRequest, request: Request):
     """
     Gera dados para um gráfico de pizza a partir de uma pergunta do usuário.
     """
-    db_schema = request.app.state.db_schema
-    ai_response = generate_ai_response(body.user_question, db_schema)
+    # db_schema = request.app.state.db_schema
+    # ai_response = generate_ai_response(body.user_question, db_schema)
     
-    data = execute_sql_query(ai_response.sql_query)
+    data = execute_sql_query(body.sql_query)
     
     return {
         "data": data,
-        "label": ai_response.label,
-        "value": ai_response.value
+        "label": body.label,
+        "value": body.value
     }
