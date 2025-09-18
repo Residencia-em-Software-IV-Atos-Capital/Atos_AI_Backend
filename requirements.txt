@@ -2,6 +2,8 @@ fastapi
 uvicorn
 google-generativeai
 sqlalchemy
-psycopg2-binary  # Exemplo de driver. Use o do seu banco de dados.
-python-dotenv    # Para carregar o arquivo .env
-pandas           # Para manipulação de dados e CSV
+psycopg2-binary
+python-dotenv
+pandas
+pyodbc
+gunicorn

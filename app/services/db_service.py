@@ -1,8 +1,6 @@
-from sqlalchemy import create_engine, inspect, text
 from fastapi import HTTPException
+from sqlalchemy import create_engine, inspect, text
 
-# AQUI VOCÊ DEVE SUBSTITUIR O DRIVER E AS IMPORTAÇÕES DO SQLAlchemy se precisar de um driver específico para SQL Server
-# Por exemplo: `pip install pyodbc` e `pip install sqlalchemy-pyodbc`
 
 def get_database_schema(db_url: str) -> str:
     """
