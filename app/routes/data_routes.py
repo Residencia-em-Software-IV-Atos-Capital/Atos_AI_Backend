@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-# from models.request_models import QueryRequest
 from app.models.request_models import QueryRequest
 from app.services.ai_service import generate_ai_response
 from app.services.db_service import execute_sql_query
