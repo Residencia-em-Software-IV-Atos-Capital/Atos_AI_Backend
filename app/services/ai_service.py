@@ -518,6 +518,20 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "value": null
     }}
 
+    **Pergunta do usuário:** "Gere um grafico de barras que me entregue o faturamento total do último mês"
+    **Resposta:**
+    Aqui está o faturamento total do último mês.
+
+    {{
+    "message": "Aqui está o faturamento total do último mês.",
+    "sql_query": "SELECT SUM(ipv.valor_total_item) AS FaturamentoTotal FROM dbproinfo.unit.ItensPedidoVenda AS ipv JOIN dbproinfo.unit.PedidosVenda AS pv ON ipv.pedido_venda_id = pv.pedido_venda_id WHERE pv.data_venda >= DATEADD(month, -1, GETDATE())",
+    "visualization_type": "bar",
+    "report_type": null,
+    "x_axis": "Mes",
+    "y_axis": "FaturamentoTotal",
+    "label": null,
+    "value": null
+    }}
 
     ```
     
