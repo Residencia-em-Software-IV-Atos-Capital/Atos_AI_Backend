@@ -25,37 +25,63 @@ if not db_connection_string:
 router = APIRouter()
 
 # A rota principal agora é responsável por direcionar o usuário para a rota correta
+# No seu arquivo de rotas (provavelmente routes/analysis.py ou similar)
+
 @router.post("/analyze")
 async def analyze_data(body: QueryRequest):
-    # db_schema = get_database_schema(body.db_connection_string) # Use o método correto aqui, conforme já discutimos
-    db_schema = db_connection_string
-    ai_response = generate_ai_response(body.user_question, db_schema)
-    
-    # Verifica se é um relatório e redireciona
-    if ai_response.visualization_type == "report":
-        if ai_response.report_type == "csv":
-            # Redireciona para a rota que gera o CSV
-            # Isso pode ser feito via front-end ou retornando uma resposta de redirecionamento HTTP
-            return {"redirect_to": f"/report/csv?user_question={body.user_question}"}
-        # Você pode adicionar mais `elif` para PDF ou XLSX
-        # elif ai_response.report_type == "pdf":
-        #     return {"redirect_to": f"/report/pdf?user_question={body.user_question}"}
-        # elif ai_response.report_type == "xlsx":
-        #     return {"redirect_to": f"/report/xlsx?user_question={body.user_question}"}
-            
-    # Se não for um relatório, continua o fluxo normal de gráficos/tabelas
-    data = execute_sql_query(db_schema, ai_response.sql_query)
+    # 1. Obtenha a string de conexão e a pergunta do usuário
+    db_schema = db_connection_string  # Substitua pela sua variável/configuração
+    user_question = body.user_question
 
-    return {
-        "message": ai_response.message,
-        "query": ai_response.sql_query,
-        "data": data,
-        "visualization_type": ai_response.visualization_type,
-        "x_axis": ai_response.x_axis,
-        "y_axis": ai_response.y_axis,
-        "label": ai_response.label,
-        "value": ai_response.value,
-    }
+    # 2. Gere a resposta da IA (esta parte já está funcionando bem)
+    ai_response = generate_ai_response(user_question, db_schema)
+
+    # 3. VERIFICAÇÃO CRÍTICA: Existe uma consulta para executar?
+    # Esta é a lógica que resolve o seu problema.
+    if ai_response.sql_query:
+        
+        # 3a. SIM, existe uma query. Agora decidimos como processá-la.
+        
+        # É um relatório para exportar?
+        if ai_response.visualization_type == "report":
+            return {
+                "message": ai_response.message,
+                "query": ai_response.sql_query,
+                "data": None,
+                "visualization_type": "report",
+                "report_type": ai_response.report_type,
+                # O frontend pode usar este campo para chamar a rota de download correta
+                "redirect_to": f"/report/{ai_response.report_type}?user_question={user_question}" 
+            }
+        
+        # Não é um relatório, então é um gráfico/tabela. EXECUTAMOS A QUERY.
+        data = execute_sql_query(db_schema, ai_response.sql_query)
+        
+        return {
+            "message": ai_response.message,
+            "query": ai_response.sql_query,
+            "data": data,
+            "visualization_type": ai_response.visualization_type,
+            "x_axis": ai_response.x_axis,
+            "y_axis": ai_response.y_axis,
+            "label": ai_response.label,
+            "value": ai_response.value,
+        }
+        
+    else:
+        # 3b. NÃO, não existe uma query (sql_query é None).
+        # Este é o nosso fluxo de conversa.
+        # Nós NÃO chamamos execute_sql_query. Apenas retornamos a mensagem.
+        return {
+            "message": ai_response.message,
+            "query": ai_response.sql_query, # Será None
+            "data": None,
+            "visualization_type": "text", # Informa ao frontend que é só texto
+            "x_axis": None,
+            "y_axis": None,
+            "label": None,
+            "value": None,
+        }
 
 # A rota /report/csv permanece a mesma, mas agora você pode ter rotas separadas
 # para PDF e XLSX que processam o mesmo fluxo
