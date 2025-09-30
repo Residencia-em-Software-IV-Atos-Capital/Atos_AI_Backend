@@ -38,10 +38,10 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
-model = genai.GenerativeModel("gemini-1.5-flash", generation_config=generation_config, safety_settings=safety_settings)
+model = genai.GenerativeModel("gemini-2.5-flash", generation_config=generation_config, safety_settings=safety_settings)
 
 def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema:
-    """
+    """ 
     Gera a resposta da IA com a consulta SQL e o tipo de visualização.
     A resposta agora inclui uma mensagem amigável antes do JSON.
     """
