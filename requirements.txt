@@ -2,7 +2,8 @@ fastapi
 uvicorn
 google-generativeai
 sqlalchemy
-psycopg2-binary
+psycopg2
+asyncpg
 python-dotenv
 pandas
 pyodbc

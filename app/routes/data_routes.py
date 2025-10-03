@@ -1,61 +1,48 @@
-# app/routes/data_routes.py
-# ... (restante das importações e configurações)
+# Seu arquivo de rotas (ex: app/routes/analysis.py)
+# As linhas com "# MUDANÇA" indicam as alterações.
 
 import os
 import pandas as pd
 from dotenv import load_dotenv
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends  # MUDANÇA: Importar Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession # MUDANÇA: Importar AsyncSession
 import io
 
 from app.models.request_models import QueryRequest
 from app.services.ai_service import generate_ai_response
-from app.services.db_service import execute_sql_query
+# MUDANÇA: Importar as novas funções do db_service
+from app.services.db_service import execute_sql_query, get_db
 
-# Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
-
-# Obtém a string de conexão da variável de ambiente
 db_connection_string = os.getenv("DATABASE_URL")
-
-# Verifica se a string de conexão foi carregada
 if not db_connection_string:
     raise ValueError("A variável de ambiente 'DATABASE_URL' não está definida.")
 
 router = APIRouter()
 
-# A rota principal agora é responsável por direcionar o usuário para a rota correta
-# No seu arquivo de rotas (provavelmente routes/analysis.py ou similar)
 
 @router.post("/analyze")
-async def analyze_data(body: QueryRequest):
-    # 1. Obtenha a string de conexão e a pergunta do usuário
-    db_schema = db_connection_string  # Substitua pela sua variável/configuração
+# MUDANÇA: Adicionar a dependência do banco de dados na assinatura da função
+async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)):
+    db_schema = db_connection_string
     user_question = body.user_question
+    ai_response = await generate_ai_response(user_question, db_schema)
 
-    # 2. Gere a resposta da IA (esta parte já está funcionando bem)
-    ai_response = generate_ai_response(user_question, db_schema)
-
-    # 3. VERIFICAÇÃO CRÍTICA: Existe uma consulta para executar?
-    # Esta é a lógica que resolve o seu problema.
     if ai_response.sql_query:
-        
-        # 3a. SIM, existe uma query. Agora decidimos como processá-la.
-        
-        # É um relatório para exportar?
         if ai_response.visualization_type == "report":
+            # A lógica para redirecionar para o relatório continua a mesma
             return {
                 "message": ai_response.message,
                 "query": ai_response.sql_query,
                 "data": None,
                 "visualization_type": "report",
                 "report_type": ai_response.report_type,
-                # O frontend pode usar este campo para chamar a rota de download correta
                 "redirect_to": f"/report/{ai_response.report_type}?user_question={user_question}" 
             }
         
-        # Não é um relatório, então é um gráfico/tabela. EXECUTAMOS A QUERY.
-        data = execute_sql_query(db_schema, ai_response.sql_query)
+        # MUDANÇA: Chamar a função com "await" e passar a sessão "db"
+        data = await execute_sql_query(db, ai_response.sql_query)
         
         return {
             "message": ai_response.message,
@@ -67,29 +54,27 @@ async def analyze_data(body: QueryRequest):
             "label": ai_response.label,
             "value": ai_response.value,
         }
-        
     else:
-        # 3b. NÃO, não existe uma query (sql_query é None).
-        # Este é o nosso fluxo de conversa.
-        # Nós NÃO chamamos execute_sql_query. Apenas retornamos a mensagem.
+        # A lógica para respostas sem query continua a mesma
         return {
             "message": ai_response.message,
-            "query": ai_response.sql_query, # Será None
+            "query": None,
             "data": None,
-            "visualization_type": "text", # Informa ao frontend que é só texto
+            "visualization_type": "text",
             "x_axis": None,
             "y_axis": None,
             "label": None,
             "value": None,
         }
 
-# A rota /report/csv permanece a mesma, mas agora você pode ter rotas separadas
-# para PDF e XLSX que processam o mesmo fluxo
+
 @router.get("/report/csv")
-async def get_csv_report(user_question: str = Query(...)):
+# MUDANÇA: Adicionar a dependência do banco aqui também
+async def get_csv_report(user_question: str = Query(...), db: AsyncSession = Depends(get_db)):
     ai_response = generate_ai_response(user_question, db_connection_string)
     
-    data = execute_sql_query(db_connection_string, ai_response.sql_query)
+    # MUDANÇA: Chamar a função com "await" e passar a sessão "db"
+    data = await execute_sql_query(db, ai_response.sql_query)
     
     df = pd.DataFrame(data)
     buffer = io.StringIO()
@@ -97,7 +82,6 @@ async def get_csv_report(user_question: str = Query(...)):
     buffer.seek(0)
     
     return StreamingResponse(buffer, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=report.csv"})
-
 
 # # NOVA ROTA: Geração de Relatórios em PDF
 # @router.get("/report/pdf")

@@ -40,7 +40,7 @@ safety_settings = {
 
 model = genai.GenerativeModel("gemini-2.5-flash", generation_config=generation_config, safety_settings=safety_settings)
 
-def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema:
+async def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema:
     """ 
     Gera a resposta da IA com a consulta SQL e o tipo de visualização.
     A resposta agora inclui uma mensagem amigável antes do JSON.
@@ -477,7 +477,7 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     """
     
     try:
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
 
         if response.prompt_feedback:
             reason = response.prompt_feedback.block_reason
