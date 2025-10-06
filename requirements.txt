@@ -2,6 +2,7 @@ fastapi
 uvicorn
 google-generativeai
 sqlalchemy
+reportlab
 psycopg2-binary
 python-dotenv
 pandas
