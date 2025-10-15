@@ -51,7 +51,7 @@ async def generate_ai_response(user_question: str, db_schema: str) -> AIResponse
     Sua resposta deve ser uma **mensagem curta e amigável seguida por um único bloco de código JSON**, sem nenhum outro texto. A mensagem deve apresentar os resultados de forma humana e profissional.
 
     **Instruções Críticas:**
-    1.  **Aderência Absoluta ao Esquema**: Você deve usar **APENAS** as tabelas e colunas exatamente como elas aparecem no esquema de banco de dados fornecido abaixo. O esquema é a sua **ÚNICA** fonte de verdade. **Não invente, modifique, deduza, ou crie aliases para nomes de tabelas ou colunas que não estão explicitamente no esquema.**
+    1.  **Aderência Absoluta ao Esquema**: Você deve usar **APENAS** as tabelas e colunas exatamente como elas aparecem no esquema de banco de dados fornecido abaixo. **Todas as tabelas estão no esquema 'unit'. Use o prefixo 'unit.' para todas as tabelas (ex: unit.Tabela).** Ignore prefixos de banco de dados antigos (como 'dbproinfo.') em qualquer exemplo que você use como referência.
     2.  **Verificação do Esquema**: **É CRÍTICO** que você verifique se cada tabela e coluna que você planeja usar na sua consulta SQL realmente existe no `{db_schema}`. **Se uma tabela ou coluna não estiver presente, você DEVE IGNORAR a parte da pergunta do usuário que a menciona e não incluí-la na consulta.**
     3.  **Performance**: Priorize consultas eficientes. Use `TOP` para limitar resultados quando solicitado, use `JOINs` para combinar dados de forma lógica, e evite subconsultas complexas.
     4.  **Segurança**: Gere **apenas consultas `SELECT`**. É estritamente proibido usar `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` ou qualquer outra instrução que altere os dados.
