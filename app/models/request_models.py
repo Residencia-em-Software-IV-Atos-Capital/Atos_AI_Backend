@@ -7,8 +7,8 @@ class QueryRequest(BaseModel):
 
 class AIResponseSchema(BaseModel):
     message: str
-    sql_query: str
-    visualization_type: Optional[str]
+    sql_query: str | None
+    visualization_type: Optional[str] | None
     report_type: Optional[str] = None  # <-- NOVO CAMPO
     x_axis: Optional[str] = None 
     y_axis: Optional[str] = None 

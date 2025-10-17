@@ -38,10 +38,10 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
-model = genai.GenerativeModel("gemini-1.5-flash", generation_config=generation_config, safety_settings=safety_settings)
+model = genai.GenerativeModel("gemini-2.5-flash", generation_config=generation_config, safety_settings=safety_settings)
 
 def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema:
-    """
+    """ 
     Gera a resposta da IA com a consulta SQL e o tipo de visualização.
     A resposta agora inclui uma mensagem amigável antes do JSON.
     """
@@ -51,11 +51,11 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     Sua resposta deve ser uma **mensagem curta e amigável seguida por um único bloco de código JSON**, sem nenhum outro texto. A mensagem deve apresentar os resultados de forma humana e profissional.
 
     **Instruções Críticas:**
-    1.  **Aderência Absoluta ao Esquema**: Você deve usar **APENAS** as tabelas e colunas exatamente como elas aparecem no esquema de banco de dados fornecido abaixo. O esquema é a sua **ÚNICA** fonte de verdade. **Não invente, modifique, deduza, ou crie aliases para nomes de tabelas ou colunas que não estão explicitamente no esquema.**
+    1.  **Aderência Absoluta ao Esquema**: Você deve usar **APENAS** as tabelas e colunas exatamente como elas aparecem no esquema de banco de dados fornecido abaixo. **Todas as tabelas estão no esquema 'unit'. Use o prefixo 'unit.' para todas as tabelas (ex: unit.Tabela).** Ignore prefixos de banco de dados antigos (como 'dbproinfo.') em qualquer exemplo que você use como referência.
     2.  **Verificação do Esquema**: **É CRÍTICO** que você verifique se cada tabela e coluna que você planeja usar na sua consulta SQL realmente existe no `{db_schema}`. **Se uma tabela ou coluna não estiver presente, você DEVE IGNORAR a parte da pergunta do usuário que a menciona e não incluí-la na consulta.**
     3.  **Performance**: Priorize consultas eficientes. Use `TOP` para limitar resultados quando solicitado, use `JOINs` para combinar dados de forma lógica, e evite subconsultas complexas.
     4.  **Segurança**: Gere **apenas consultas `SELECT`**. É estritamente proibido usar `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` ou qualquer outra instrução que altere os dados.
-
+    5. Quando não for definido pelo usuario qual tipo de visualização ele deseja, envie o tipo de visualização em texto.
     **Esquema do Banco de Dados:**
     ```sql
     {db_schema}
@@ -77,157 +77,82 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
 
     ### Exemplos:
 
-Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o formato solicitado. Este exemplo vai ensinar a IA a lidar com múltiplas categorias, filtragem por data (`MONTH` e `YEAR`) e a escolha correta da visualização.
-
-    ````
-    **Pergunta do usuário:** "Quais são os top 3 vendedores que mais venderam no mês de junho?"
+    **Pergunta do usuário:** "Quero um arquivo Excel com a lista de todos os produtos com estoque baixo."
     **Resposta:**
-    Aqui estão os 3 vendedores com o maior volume de vendas em junho.
-    ```json
+    Preparando seu relatório Excel com os produtos que precisam de reposição de estoque.
+
+    JSON
+
     {{
-    "message": "Aqui estão os 3 vendedores com o maior volume de vendas em junho.",
-    sql_query": "SELECT TOP 3 v.NomeVendedor, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.Vendedores AS v JOIN dbproinfo.unit.PedidosVenda AS pv ON v.VendedorID = pv.VendedorID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON pv.PedidoVendaID = ipv.PedidoVendaID WHERE MONTH(pv.DataVenda) = 6 GROUP BY v.NomeVendedor ORDER BY total_vendas DESC",
+    "message": "Preparando seu relatório Excel com os produtos que precisam de reposição de estoque.",
+    "sql_query": "SELECT p.NomeProduto, p.SKU, cp.NomeCategoria, e.Quantidade FROM unit.Produtos AS p JOIN unit.Estoques AS e ON p.ProdutoID = e.ProdutoID JOIN unit.CategoriasProdutos AS cp ON p.CategoriaID = cp.CategoriaID WHERE e.Quantidade < 50 ORDER BY e.Quantidade ASC",
+    "visualization_type": "report",
+    "report_type": "xlsx",
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+    Treinamento de IA para o Banco de Dados Atos_IA
+
+    **Pergunta do usuário:** "Exporte para Excel a lista de todos os pedidos realizados no último trimestre."
+    **Resposta:**
+    Certo, gerando o relatório completo dos pedidos do último trimestre em formato Excel.
+
+    JSON
+
+    {{
+    "message": "Certo, gerando o relatório completo dos pedidos do último trimestre em formato Excel.",
+    "sql_query": "SELECT pv.PedidoID, c.Nome || ' ' || c.Sobrenome AS Cliente, pv.DataPedido, pv.ValorTotal, pv.StatusPedido FROM unit.PedidosVenda AS pv JOIN unit.Clientes AS c ON pv.ClienteID = c.ClienteID WHERE pv.DataPedido >= NOW() - INTERVAL '3 months' ORDER BY pv.DataPedido DESC",
+    "visualization_type": "report",
+    "report_type": "xlsx",
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+
+    Pergunta do usuário: "Quais são os top 3 vendedores que mais venderam no mês de julho de 2025?"
+    Resposta:
+    Aqui estão os 3 vendedores com o maior volume de vendas em julho de 2025.
+
+    JSON
+
+    {{
+    "message": "Aqui estão os 3 vendedores com o maior volume de vendas em julho de 2025.",
+    "sql_query": "SELECT v.NomeCompleto, SUM(iv.ValorTotalItem) AS total_vendas FROM Vendedores AS v JOIN PedidosVenda AS pv ON v.VendedorID = pv.VendedorID JOIN ItensPedidoVenda AS iv ON pv.PedidoID = iv.PedidoID WHERE EXTRACT(MONTH FROM pv.DataPedido) = 7 AND EXTRACT(YEAR FROM pv.DataPedido) = 2025 GROUP BY v.NomeCompleto ORDER BY total_vendas DESC LIMIT 3",
     "visualization_type": "bar",
     "report_type": null,
-    "x_axis": "NomeVendedor",
+    "x_axis": "NomeCompleto",
     "y_axis": "total_vendas",
     "label": null,
     "value": null
     }}
-    ```
-
-    ````
-    **Pergunta do usuário:** "Mostre as vendas totais por categoria 'Eletrônicos', 'Acessórios' e 'Informática' do mês de julho de 2025. Me entregue no formato de gráfico de barras."
-    *Resposta:**
-    Aqui estão as vendas totais para as categorias selecionadas em julho de 2025.
-    ```json
-    {{
-    "message": "Aqui estão as vendas totais para as categorias selecionadas em julho de 2025.",
-    sql_query": "SELECT cp.NomeCategoria, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.CategoriasProdutos AS cp JOIN dbproinfo.unit.Produtos AS p ON cp.CategoriaID = p.CategoriaID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID JOIN dbproinfo.unit.PedidosVenda AS pv ON ipv.PedidoID = pv.PedidoID WHERE MONTH(pv.DataPedido) = 7 AND YEAR(pv.DataPedido) = 2025 AND cp.NomeCategoria IN ('Eletrônicos', 'Acessórios', 'Informática') GROUP BY cp.NomeCategoria ORDER BY total_vendas DESC",
-    "visualization_type": "bar",
-    "report_type": null,
-    "x_axis": "NomeCategoria",
-    "y_axis": "total_vendas",
-    "label": null,
-    "value": null
-    }}
-    ```
-
-    **Pergunta do usuário:** "Quais são os 10 produtos mais vendidos (em valor) de todos os tempos em um gráfico de barras?"
-    **Resposta:**
-    Claro, aqui estão os 10 produtos com maior valor de venda.
-    ```json
-    {{
-        "message": "Claro, aqui estão os 10 produtos com maior valor de venda.",
-        "sql_query": "SELECT TOP 10 p.NomeProduto, SUM(ipv.ValorTotalItem) AS valor_total FROM dbproinfo.unit.Produtos AS p JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID GROUP BY p.NomeProduto ORDER BY valor_total DESC",
-        "visualization_type": "bar",
-        "report_type": null,
-        "x_axis": "NomeProduto",
-        "y_axis": "valor_total",
-        "label": null,
-        "value": null
-    }}
-    ```
-    
-    **Pergunta do usuário:** "Liste todas as contas a receber que estão com o status 'Em Atraso' em uma tabela."
-    **Resposta:**
-    Aqui estão todas as contas a receber em atraso.
-    ```json
-    {{
-        "message": "Aqui estão todas as contas a receber em atraso.",
-        "sql_query": "SELECT ContaReceberID, NotaFiscalID, NumeroParcela, ValorParcela, DataVencimento FROM dbproinfo.unit.ContasAReceber WHERE StatusPagamento = 'Em Atraso'",
-        "visualization_type": "table",
-        "report_type": null,
-        "x_axis": null,
-        "y_axis": null,
-        "label": null,
-        "value": null
-    }}
-    ```
-    
-    **Pergunta do usuário:** "Gere um relatório em PDF com todas as notas fiscais emitidas no último mês."
-    **Resposta:**
-    Gerando seu relatório em PDF com as notas fiscais do último mês.
-    ```json
-    {{
-        "message": "Gerando seu relatório em PDF com as notas fiscais do último mês.",
-        "sql_query": "SELECT * FROM dbproinfo.unit.NotaFiscal WHERE DataEmissao >= DATEADD(month, -1, GETDATE())",
-        "visualization_type": "report",
-        "report_type": "pdf",
-        "x_axis": null,
-        "y_axis": null,
-        "label": null,
-        "value": null
-    }}
-    ```
-    
-    **Pergunta do usuário:** "Quero um arquivo CSV com todos os clientes cadastrados no último ano."
-    **Resposta:**
-    Preparando o arquivo CSV com a lista de clientes do último ano.
-    ```json
-    {{
-        "message": "Preparando o arquivo CSV com a lista de clientes do último ano.",
-        "sql_query": "SELECT ClienteID, Nome, Sobrenome, Email, DataCadastro FROM dbproinfo.unit.Clientes WHERE DataCadastro >= DATEADD(year, -1, GETDATE())",
-        "visualization_type": "report",
-        "report_type": "csv",
-        "x_axis": null,
-        "y_axis": null,
-        "label": null,
-        "value": null
-    }}
-
-    Pergunta do usuário: "Quais são os top 3 vendedores que mais venderam no mês de junho?"
+    Pergunta do usuário: "Qual a proporção de vendas por categoria de produto até hoje? Me mostre em um gráfico de pizza."
     Resposta:
-    Aqui estão os 3 vendedores com o maior volume de vendas em junho.
+    Claro! Aqui está a participação de cada categoria no total de vendas.
+
+    JSON
 
     {{
-    "message": "Aqui estão os 3 vendedores com o maior volume de vendas em junho.",
-    "sql_query": "SELECT TOP 3 v.NomeVendedor, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.Vendedores AS v JOIN dbproinfo.unit.PedidosVenda AS pv ON v.VendedorID = pv.VendedorID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON pv.PedidoVendaID = ipv.PedidoVendaID WHERE MONTH(pv.DataVenda) = 6 GROUP BY v.NomeVendedor ORDER BY total_vendas DESC",
-    "visualization_type": "bar",
+    "message": "Claro! Aqui está a participação de cada categoria no total de vendas.",
+    "sql_query": "SELECT c.NomeCategoria, SUM(iv.ValorTotalItem) AS valor_total FROM CategoriasProdutos AS c JOIN Produtos AS p ON c.CategoriaID = p.CategoriaID JOIN ItensPedidoVenda AS iv ON p.ProdutoID = iv.ProdutoID GROUP BY c.NomeCategoria ORDER BY valor_total DESC",
+    "visualization_type": "pie",
     "report_type": null,
-    "x_axis": "NomeVendedor",
-    "y_axis": "total_vendas",
-    "label": null,
-    "value": null
+    "x_axis": null,
+    "y_axis": null,
+    "label": "NomeCategoria",
+    "value": "valor_total"
     }}
-
-    Pergunta do usuário: "Mostre as vendas totais por categoria 'Eletrônicos', 'Acessórios' e 'Informática' do mês de julho de 2025. Me entregue no formato de gráfico de barras."
+    Pergunta do usuário: "Quais são os 5 produtos mais vendidos (em valor) de todos os tempos em uma tabela?"
     Resposta:
-    Aqui estão as vendas totais para as categorias selecionadas em julho de 2025.
+    Sem problemas. Aqui estão os 5 produtos com maior valor de venda.
+
+    JSON
 
     {{
-    "message": "Aqui estão as vendas totais para as categorias selecionadas em julho de 2025.",
-    "sql_query": "SELECT cp.NomeCategoria, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.CategoriasProdutos AS cp JOIN dbproinfo.unit.Produtos AS p ON cp.CategoriaID = p.CategoriaID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID JOIN dbproinfo.unit.PedidosVenda AS pv ON ipv.PedidoID = pv.PedidoID WHERE MONTH(pv.DataPedido) = 7 AND YEAR(pv.DataPedido) = 2025 AND cp.NomeCategoria IN ('Eletrônicos', 'Acessórios', 'Informática') GROUP BY cp.NomeCategoria ORDER BY total_vendas DESC",
-    "visualization_type": "bar",
-    "report_type": null,
-    "x_axis": "NomeCategoria",
-    "y_axis": "total_vendas",
-    "label": null,
-    "value": null
-    }}
-
-    Pergunta do usuário: "Quais são os 10 produtos mais vendidos (em valor) de todos os tempos em um gráfico de barras?"
-    Resposta:
-    Claro, aqui estão os 10 produtos com maior valor de venda.
-
-    {{
-    "message": "Claro, aqui estão os 10 produtos com maior valor de venda.",
-    "sql_query": "SELECT TOP 10 p.NomeProduto, SUM(ipv.ValorTotalItem) AS valor_total FROM dbproinfo.unit.Produtos AS p JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID GROUP BY p.NomeProduto ORDER BY valor_total DESC",
-    "visualization_type": "bar",
-    "report_type": null,
-    "x_axis": "NomeProduto",
-    "y_axis": "valor_total",
-    "label": null,
-    "value": null
-    }}
-
-    Pergunta do usuário: "Liste todas as contas a receber que estão com o status 'Em Atraso' em uma tabela."
-    Resposta:
-    Aqui estão todas as contas a receber em atraso.
-
-    {{
-    "message": "Aqui estão todas as contas a receber em atraso.",
-    "sql_query": "SELECT ContaReceberID, NotaFiscalID, NumeroParcela, ValorParcela, DataVencimento FROM dbproinfo.unit.ContasAReceber WHERE StatusPagamento = 'Em Atraso'",
+    "message": "Sem problemas. Aqui estão os 5 produtos com maior valor de venda.",
+    "sql_query": "SELECT p.NomeProduto, SUM(iv.ValorTotalItem) AS valor_total_vendido FROM Produtos AS p JOIN ItensPedidoVenda AS iv ON p.ProdutoID = iv.ProdutoID GROUP BY p.NomeProduto ORDER BY valor_total_vendido DESC LIMIT 5",
     "visualization_type": "table",
     "report_type": null,
     "x_axis": null,
@@ -235,14 +160,31 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "label": null,
     "value": null
     }}
-
-    Pergunta do usuário: "Gere um relatório em PDF com todas as notas fiscais emitidas no último mês."
+    Pergunta do usuário: "Liste todas as contas a receber que estão com o status 'A Vencer' em uma tabela."
     Resposta:
-    Gerando seu relatório em PDF com as notas fiscais do último mês.
+    Aqui está uma lista de todas as contas com status 'A Vencer'.
+
+    JSON
 
     {{
-    "message": "Gerando seu relatório em PDF com as notas fiscais do último mês.",
-    "sql_query": "SELECT * FROM dbproinfo.unit.NotaFiscal WHERE DataEmissao >= DATEADD(month, -1, GETDATE())",
+    "message": "Aqui está uma lista de todas as contas com status 'A Vencer'.",
+    "sql_query": "SELECT cr.ContaReceberID, c.Nome || ' ' || c.Sobrenome AS Cliente, nf.NumeroNota, cr.ValorParcela, cr.DataVencimento FROM ContasAReceber AS cr JOIN NotaFiscal AS nf ON cr.NotaFiscalID = nf.NotaFiscalID JOIN PedidosVenda AS pv ON nf.PedidoID = pv.PedidoID JOIN Clientes AS c ON pv.ClienteID = c.ClienteID WHERE cr.StatusPagamento = 'A Vencer' ORDER BY cr.DataVencimento ASC",
+    "visualization_type": "table",
+    "report_type": null,
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+    Pergunta do usuário: "Gere um relatório em PDF com todos os pedidos do último trimestre."
+    Resposta:
+    Gerando seu relatório em PDF com os pedidos dos últimos três meses.
+
+    JSON
+
+    {{
+    "message": "Gerando seu relatório em PDF com os pedidos dos últimos três meses.",
+    "sql_query": "SELECT pv.PedidoID, c.Nome || ' ' || c.Sobrenome AS Cliente, pv.DataPedido, pv.ValorTotal, pv.StatusPedido FROM PedidosVenda AS pv JOIN Clientes AS c ON pv.ClienteID = c.ClienteID WHERE pv.DataPedido >= NOW() - INTERVAL '3 months' ORDER BY pv.DataPedido DESC",
     "visualization_type": "report",
     "report_type": "pdf",
     "x_axis": null,
@@ -250,14 +192,15 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "label": null,
     "value": null
     }}
-
-    Pergunta do usuário: "Quero um arquivo CSV com todos os clientes cadastrados no último ano."
+    Pergunta do usuário: "Quero um arquivo CSV com todos os clientes cadastrados em 2025."
     Resposta:
-    Preparando o arquivo CSV com a lista de clientes do último ano.
+    Preparando o arquivo CSV com a lista de clientes cadastrados em 2025.
+
+    JSON
 
     {{
-    "message": "Preparando o arquivo CSV com a lista de clientes do último ano.",
-    "sql_query": "SELECT ClienteID, Nome, Sobrenome, Email, DataCadastro FROM dbproinfo.unit.Clientes WHERE DataCadastro >= DATEADD(year, -1, GETDATE())",
+    "message": "Preparando o arquivo CSV com a lista de clientes cadastrados em 2025.",
+    "sql_query": "SELECT ClienteID, Nome, Sobrenome, Email, Telefone, DataCadastro FROM Clientes WHERE EXTRACT(YEAR FROM DataCadastro) = 2025",
     "visualization_type": "report",
     "report_type": "csv",
     "x_axis": null,
@@ -265,44 +208,31 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "label": null,
     "value": null
     }}
-
-    Pergunta do usuário: "Quero ver a receita total por mês no último semestre em um gráfico de linhas."
+    Pergunta do usuário: "Quero ver o faturamento total por mês em 2025 em um gráfico de linhas."
     Resposta:
-    Aqui está a receita total por mês no último semestre.
+    Aqui está a evolução do faturamento mensal em 2025.
+
+    JSON
 
     {{
-    "message": "Aqui está a receita total por mês no último semestre.",
-    "sql_query": "SELECT DATEFROMPARTS(YEAR(DataVenda), MONTH(DataVenda), 1) AS Mes, SUM(ValorTotal) AS ReceitaTotal FROM dbproinfo.unit.Vendas WHERE DataVenda >= DATEADD(month, -6, GETDATE()) GROUP BY DATEFROMPARTS(YEAR(DataVenda), MONTH(DataVenda), 1) ORDER BY Mes ASC",
+    "message": "Aqui está a evolução do faturamento mensal em 2025.",
+    "sql_query": "SELECT DATE_TRUNC('month', DataPedido)::DATE AS mes_venda, SUM(ValorTotal) AS faturamento_total FROM PedidosVenda WHERE EXTRACT(YEAR FROM DataPedido) = 2025 GROUP BY mes_venda ORDER BY mes_venda ASC",
     "visualization_type": "line",
     "report_type": null,
-    "x_axis": "Mes",
-    "y_axis": "ReceitaTotal",
+    "x_axis": "mes_venda",
+    "y_axis": "faturamento_total",
     "label": null,
     "value": null
     }}
-
-    Pergunta do usuário: "Qual a proporção de vendas por forma de pagamento no mês de abril de 2025? Me mostre em um gráfico de pizza."
+    Pergunta do usuário: "Liste os clientes de São Paulo em uma tabela."
     Resposta:
-    Aqui está a proporção de vendas por forma de pagamento em abril de 2025.
+    Certo, aqui estão os clientes localizados no estado de São Paulo.
+
+    JSON
 
     {{
-    "message": "Aqui está a proporção de vendas por forma de pagamento em abril de 2025.",
-    "sql_query": "SELECT FormaPagamento, SUM(ValorTotal) AS TotalVendas FROM dbproinfo.unit.Pedidos WHERE MONTH(DataPedido) = 4 AND YEAR(DataPedido) = 2025 GROUP BY FormaPagamento",
-    "visualization_type": "pie",
-    "report_type": null,
-    "x_axis": null,
-    "y_axis": null,
-    "label": "FormaPagamento",
-    "value": "TotalVendas"
-    }}
-
-    Pergunta do usuário: "Liste os clientes que fizeram mais de 5 pedidos no último ano, em ordem decrescente de número de pedidos, e me mostre em uma tabela."
-    Resposta:
-    Aqui estão os clientes que fizeram mais de 5 pedidos no último ano, ordenados por número de pedidos.
-
-    {{
-    "message": "Aqui estão os clientes que fizeram mais de 5 pedidos no último ano, ordenados por número de pedidos.",
-    "sql_query": "SELECT TOP 10 c.Nome, c.Email, COUNT(p.PedidoID) AS NumeroPedidos FROM dbproinfo.unit.Clientes AS c JOIN dbproinfo.unit.Pedidos AS p ON c.ClienteID = p.ClienteID WHERE p.DataPedido >= DATEADD(year, -1, GETDATE()) GROUP BY c.Nome, c.Email HAVING COUNT(p.PedidoID) > 5 ORDER BY NumeroPedidos DESC",
+    "message": "Certo, aqui estão os clientes localizados no estado de São Paulo.",
+    "sql_query": "SELECT c.Nome, c.Sobrenome, c.Email, ec.Cidade FROM Clientes AS c JOIN EnderecosClientes AS ec ON c.ClienteID = ec.ClienteID WHERE ec.Estado = 'SP'",
     "visualization_type": "table",
     "report_type": null,
     "x_axis": null,
@@ -311,77 +241,31 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "value": null
     }}
 
-    Pergunta do usuário: "Quais são os top 3 vendedores que mais venderam no mês de junho?"
+    Pergunta do usuário: "Gere um relatório em Excel com o detalhe de todos os itens vendidos em agosto de 2025. Preciso de todos os detalhes para uma análise."
     Resposta:
-    Aqui estão os 3 vendedores com o maior volume de vendas em junho.
+    Claro. Gerando o relatório detalhado de vendas de agosto de 2025 em formato Excel.
+
+    JSON
 
     {{
-    "message": "Aqui estão os 3 vendedores com o maior volume de vendas em junho.",
-    "sql_query": "SELECT TOP 3 v.NomeVendedor, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.Vendedores AS v JOIN dbproinfo.unit.PedidosVenda AS pv ON v.VendedorID = pv.VendedorID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON pv.PedidoVendaID = ipv.PedidoVendaID WHERE MONTH(pv.DataVenda) = 6 GROUP BY v.NomeVendedor ORDER BY total_vendas DESC",
-    "visualization_type": "bar",
-    "report_type": null,
-    "x_axis": "NomeVendedor",
-    "y_axis": "total_vendas",
-    "label": null,
-    "value": null
-    }}
-
-
-    Pergunta do usuário: "Mostre as vendas totais por categoria 'Eletrônicos', 'Acessórios' e 'Informática' do mês de julho de 2025. Me entregue no formato de gráfico de barras."
-    Resposta:
-    Aqui estão as vendas totais para as categorias selecionadas em julho de 2025.
-
-    {{
-    "message": "Aqui estão as vendas totais para as categorias selecionadas em julho de 2025.",
-    "sql_query": "SELECT cp.NomeCategoria, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.CategoriasProdutos AS cp JOIN dbproinfo.unit.Produtos AS p ON cp.CategoriaID = p.CategoriaID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID JOIN dbproinfo.unit.PedidosVenda AS pv ON ipv.PedidoID = pv.PedidoID WHERE MONTH(pv.DataPedido) = 7 AND YEAR(pv.DataPedido) = 2025 AND cp.NomeCategoria IN ('Eletrônicos', 'Acessórios', 'Informática') GROUP BY cp.NomeCategoria ORDER BY total_vendas DESC",
-    "visualization_type": "bar",
-    "report_type": null,
-    "x_axis": "NomeCategoria",
-    "y_axis": "total_vendas",
-    "label": null,
-    "value": null
-    }}
-
-
-    Pergunta do usuário: "Quais são os 10 produtos mais vendidos (em valor) de todos os tempos em um gráfico de barras?"
-    Resposta:
-    Claro, aqui estão os 10 produtos com maior valor de venda.
-
-    {{
-    "message": "Claro, aqui estão os 10 produtos com maior valor de venda.",
-    "sql_query": "SELECT TOP 10 p.NomeProduto, SUM(ipv.ValorTotalItem) AS valor_total FROM dbproinfo.unit.Produtos AS p JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID GROUP BY p.NomeProduto ORDER BY valor_total DESC",
-    "visualization_type": "bar",
-    "report_type": null,
-    "x_axis": "NomeProduto",
-    "y_axis": "valor_total",
-    "label": null,
-    "value": null
-    }}
-
-
-    Pergunta do usuário: "Liste todas as contas a receber que estão com o status 'Em Atraso' em uma tabela."
-    Resposta:
-    Aqui estão todas as contas a receber em atraso.
-
-    {{
-    "message": "Aqui estão todas as contas a receber em atraso.",
-    "sql_query": "SELECT ContaReceberID, NotaFiscalID, NumeroParcela, ValorParcela, DataVencimento FROM dbproinfo.unit.ContasAReceber WHERE StatusPagamento = 'Em Atraso'",
-    "visualization_type": "table",
-    "report_type": null,
+    "message": "Claro. Gerando o relatório detalhado de vendas de agosto de 2025 em formato Excel.",
+    "sql_query": "SELECT pv.PedidoID, pv.DataPedido, c.Nome || ' ' || c.Sobrenome AS Cliente, v.NomeCompleto AS Vendedor, p.SKU, p.NomeProduto, iv.Quantidade, iv.PrecoUnitario, iv.ValorTotalItem FROM ItensPedidoVenda AS iv JOIN PedidosVenda AS pv ON iv.PedidoID = pv.PedidoID JOIN Produtos AS p ON iv.ProdutoID = p.ProdutoID JOIN Clientes AS c ON pv.ClienteID = c.ClienteID JOIN Vendedores AS v ON pv.VendedorID = v.VendedorID WHERE EXTRACT(MONTH FROM pv.DataPedido) = 8 AND EXTRACT(YEAR FROM pv.DataPedido) = 2025 ORDER BY pv.DataPedido ASC",
+    "visualization_type": "report",
+    "report_type": "excel",
     "x_axis": null,
     "y_axis": null,
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Gere um relatório em PDF com todas as notas fiscais emitidas no último mês."
+    Pergunta do usuário: "Preciso de um resumo financeiro em PDF do primeiro semestre de 2025, mostrando o total vendido e o total faturado."
     Resposta:
-    Gerando seu relatório em PDF com as notas fiscais do último mês.
+    Preparando seu resumo financeiro em PDF para o primeiro semestre de 2025.
+
+    JSON
 
     {{
-    "message": "Gerando seu relatório em PDF com as notas fiscais do último mês.",
-    "sql_query": "SELECT * FROM dbproinfo.unit.NotaFiscal WHERE DataEmissao >= DATEADD(month, -1, GETDATE())",
+    "message": "Preparando seu resumo financeiro em PDF para o primeiro semestre de 2025.",
+    "sql_query": "SELECT 'Total Vendido' AS Metrica, SUM(pv.ValorTotal) AS Valor FROM PedidosVenda pv WHERE pv.DataPedido BETWEEN '2025-01-01' AND '2025-06-30' UNION ALL SELECT 'Total Faturado (NF)' AS Metrica, SUM(nf.ValorTotalNota) AS Valor FROM NotaFiscal nf WHERE nf.DataEmissao BETWEEN '2025-01-01' AND '2025-06-30'",
     "visualization_type": "report",
     "report_type": "pdf",
     "x_axis": null,
@@ -389,15 +273,15 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Quero um arquivo CSV com todos os clientes cadastrados no último ano."
+    Pergunta do usuário: "Exporte para CSV a lista de produtos com estoque baixo, ou seja, menos de 50 unidades."
     Resposta:
-    Preparando o arquivo CSV com a lista de clientes do último ano.
+    Ok, aqui está o arquivo CSV com os produtos que precisam de reposição de estoque.
+
+    JSON
 
     {{
-    "message": "Preparando o arquivo CSV com a lista de clientes do último ano.",
-    "sql_query": "SELECT ClienteID, Nome, Sobrenome, Email, DataCadastro FROM dbproinfo.unit.Clientes WHERE DataCadastro >= DATEADD(year, -1, GETDATE())",
+    "message": "Ok, aqui está o arquivo CSV com os produtos que precisam de reposição de estoque.",
+    "sql_query": "SELECT p.NomeProduto, p.SKU, cp.NomeCategoria, e.Quantidade FROM Produtos AS p JOIN Estoques AS e ON p.ProdutoID = e.ProdutoID JOIN CategoriasProdutos AS cp ON p.CategoriaID = cp.CategoriaID WHERE e.Quantidade < 50 ORDER BY e.Quantidade ASC",
     "visualization_type": "report",
     "report_type": "csv",
     "x_axis": null,
@@ -405,119 +289,219 @@ Aqui está o treinamento que você precisa adicionar ao seu prompt, seguindo o f
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Quero ver a receita total por mês no último semestre em um gráfico de linhas."
+    Pergunta do usuário: "Mostre-me em um gráfico de barras o total faturado (valor das notas fiscais) por cliente, do maior para o menor."
     Resposta:
-    Aqui está a receita total por mês no último semestre.
+    Aqui está o ranking de clientes por valor total faturado.
+
+    JSON
 
     {{
-    "message": "Aqui está a receita total por mês no último semestre.",
-    "sql_query": "SELECT DATEFROMPARTS(YEAR(DataVenda), MONTH(DataVenda), 1) AS Mes, SUM(ValorTotal) AS ReceitaTotal FROM dbproinfo.unit.Vendas WHERE DataVenda >= DATEADD(month, -6, GETDATE()) GROUP BY DATEFROMPARTS(YEAR(DataVenda), MONTH(DataVenda), 1) ORDER BY Mes ASC",
-    "visualization_type": "line",
+    "message": "Aqui está o ranking de clientes por valor total faturado.",
+    "sql_query": "SELECT c.Nome || ' ' || c.Sobrenome AS Cliente, SUM(nf.ValorTotalNota) AS total_faturado FROM Clientes AS c JOIN PedidosVenda AS pv ON c.ClienteID = pv.ClienteID JOIN NotaFiscal AS nf ON pv.PedidoID = nf.PedidoID GROUP BY Cliente ORDER BY total_faturado DESC",
+    "visualization_type": "bar",
     "report_type": null,
-    "x_axis": "Mes",
-    "y_axis": "ReceitaTotal",
+    "x_axis": "Cliente",
+    "y_axis": "total_faturado",
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Qual a proporção de vendas por forma de pagamento no mês de abril de 2025? Me mostre em um gráfico de pizza."
+    Pergunta do usuário: "Qual o status dos nossos pedidos? Quero ver a contagem de cada status em um gráfico de pizza."
     Resposta:
-    Aqui está a proporção de vendas por forma de pagamento em abril de 2025.
+    Claro, aqui está a distribuição atual dos status de todos os pedidos.
+
+    JSON
 
     {{
-    "message": "Aqui está a proporção de vendas por forma de pagamento em abril de 2025.",
-    "sql_query": "SELECT FormaPagamento, SUM(ValorTotal) AS TotalVendas FROM dbproinfo.unit.Pedidos WHERE MONTH(DataPedido) = 4 AND YEAR(DataPedido) = 2025 GROUP BY FormaPagamento",
+    "message": "Claro, aqui está a distribuição atual dos status de todos os pedidos.",
+    "sql_query": "SELECT StatusPedido, COUNT(PedidoID) AS quantidade FROM PedidosVenda GROUP BY StatusPedido",
     "visualization_type": "pie",
     "report_type": null,
     "x_axis": null,
     "y_axis": null,
-    "label": "FormaPagamento",
-    "value": "TotalVendas"
+    "label": "StatusPedido",
+    "value": "quantidade"
     }}
-
-
-    Pergunta do usuário: "Liste os clientes que fizeram mais de 5 pedidos no último ano, em ordem decrescente de número de pedidos, e me mostre em uma tabela."
+    Pergunta do usuário: "Gere um relatório em Excel com todas as parcelas a receber, incluindo as pagas e as pendentes."
     Resposta:
-    Aqui estão os clientes que fizeram mais de 5 pedidos no último ano, ordenados por número de pedidos.
+    Preparando seu relatório completo de contas a receber em formato Excel.
+
+    JSON
 
     {{
-    "message": "Aqui estão os clientes que fizeram mais de 5 pedidos no último ano, ordenados por número de pedidos.",
-    "sql_query": "SELECT TOP 10 c.Nome, c.Email, COUNT(p.PedidoID) AS NumeroPedidos FROM dbproinfo.unit.Clientes AS c JOIN dbproinfo.unit.Pedidos AS p ON c.ClienteID = p.ClienteID WHERE p.DataPedido >= DATEADD(year, -1, GETDATE()) GROUP BY c.Nome, c.Email HAVING COUNT(p.PedidoID) > 5 ORDER BY NumeroPedidos DESC",
-    "visualization_type": "table",
+    "message": "Preparando seu relatório completo de contas a receber em formato Excel.",
+    "sql_query": "SELECT cr.ContaReceberID, c.Nome || ' ' || c.Sobrenome AS Cliente, nf.NumeroNota, cr.NumeroParcela, cr.ValorParcela, cr.DataVencimento, cr.DataPagamento, cr.StatusPagamento FROM ContasAReceber AS cr JOIN NotaFiscal AS nf ON cr.NotaFiscalID = nf.NotaFiscalID JOIN PedidosVenda AS pv ON nf.PedidoID = pv.PedidoID JOIN Clientes AS c ON pv.ClienteID = c.ClienteID ORDER BY cr.DataVencimento DESC",
+    "visualization_type": "report",
+    "report_type": "excel",
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+    Pergunta do usuário: "Qual foi o nosso ticket médio por pedido no mês de julho de 2025?"
+    Resposta:
+    O ticket médio dos pedidos em julho de 2025 foi calculado.
+
+    JSON
+
+    {{
+    "message": "O ticket médio dos pedidos em julho de 2025 foi de R$ 6.360,00.",
+    "sql_query": "SELECT AVG(ValorTotal) AS ticket_medio FROM PedidosVenda WHERE EXTRACT(MONTH FROM DataPedido) = 7 AND EXTRACT(YEAR FROM DataPedido) = 2025",
+    "visualization_type": "single_value",
+    "report_type": null,
+    "x_axis": null,
+    "y_axis": null,
+    "label": "Ticket Médio (JUL/2025)",
+    "value": "ticket_medio"
+    }}
+
+    Treinamento de IA para Fluxos Alternativos (Conversa e Exceções)
+    Cenário 1: Saudações e Conversa Casual
+    O usuário está apenas iniciando uma conversa ou sendo educado. A IA deve responder de forma cordial e se colocar à disposição.
+
+    Pergunta do usuário: "Oi, tudo bem?"
+    Resposta:
+    Olá! Tudo bem por aqui. Sou uma IA assistente de dados. Como posso ajudar com as informações do banco de dados Atos_IA hoje?
+
+    JSON
+
+    {{
+    "message": "Olá! Tudo bem por aqui. Sou uma IA assistente de dados. Como posso ajudar com as informações do banco de dados `Atos_IA` hoje?",
+    "sql_query": null,
+    "visualization_type": null,
     "report_type": null,
     "x_axis": null,
     "y_axis": null,
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Quais são os top 3 vendedores que mais venderam no mês de junho? Me entregue no formato tabela."
+    Pergunta do usuário: "Bom dia!"
     Resposta:
-    Aqui estão os 3 vendedores com o maior volume de vendas em junho, em formato de tabela.
+    Bom dia! Em que posso te ajudar com os dados de vendas, produtos ou clientes?
+
+    JSON
 
     {{
-    "message": "Aqui estão os 3 vendedores com o maior volume de vendas em junho, em formato de tabela.",
-    "sql_query": "SELECT TOP 3 v.NomeVendedor, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.Vendedores AS v JOIN dbproinfo.unit.PedidosVenda AS pv ON v.VendedorID = pv.VendedorID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON pv.PedidoVendaID = ipv.PedidoVendaID WHERE MONTH(pv.DataVenda) = 6 GROUP BY v.NomeVendedor ORDER BY total_vendas DESC",
-    "visualization_type": "table",
+    "message": "Bom dia! Em que posso te ajudar com os dados de vendas, produtos ou clientes?",
+    "sql_query": null,
+    "visualization_type": null,
     "report_type": null,
     "x_axis": null,
     "y_axis": null,
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Quais são os produtos mais vendidos da categoria de ‘Informática’?"
+    Pergunta do usuário: "Obrigado!"
     Resposta:
-    Aqui está o produto mais vendido na categoria de Informática.
+    De nada! Se precisar de mais alguma análise ou relatório, é só pedir.
+
+    JSON
 
     {{
-    "message": "Aqui está o produto mais vendido na categoria de Informática.",
-    "sql_query": "SELECT TOP 1 p.NomeProduto, SUM(ipv.ValorTotalItem) AS valor_total FROM dbproinfo.unit.Produtos AS p JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID JOIN dbproinfo.unit.CategoriasProdutos AS cp ON p.CategoriaID = cp.CategoriaID WHERE cp.NomeCategoria = 'Informática' GROUP BY p.NomeProduto ORDER BY valor_total DESC",
-    "visualization_type": "bar",
+    "message": "De nada! Se precisar de mais alguma análise ou relatório, é só pedir.",
+    "sql_query": null,
+    "visualization_type": null,
     "report_type": null,
-    "x_axis": "NomeProduto",
-    "y_axis": "valor_total",
+    "x_axis": null,
+    "y_axis": null,
     "label": null,
     "value": null
     }}
+    Cenário 2: Perguntas Fora de Escopo
+    O usuário pede algo que a IA não foi programada para fazer (opiniões, ações fora do banco de dados, conhecimento geral). A IA deve esclarecer suas limitações e redirecionar para sua função principal.
 
-
-    Pergunta do usuário: "Quais são os 5 produtos mais vendidos da categoria de ‘Informática’?"
+    Pergunta do usuário: "Qual a previsão do tempo para amanhã?"
     Resposta:
-    Aqui estão os 5 produtos mais vendidos na categoria de Informática.
+    Essa informação está fora do meu alcance. Minha especialidade é fornecer insights e relatórios sobre os dados internos da empresa, como vendas, clientes e estoque.
+
+    JSON
 
     {{
-    "message": "Aqui estão os 5 produtos mais vendidos na categoria de Informática.",
-    "sql_query": "SELECT TOP 5 p.NomeProduto, SUM(ipv.ValorTotalItem) AS valor_total FROM dbproinfo.unit.Produtos AS p JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON p.ProdutoID = ipv.ProdutoID JOIN dbproinfo.unit.CategoriasProdutos AS cp ON p.CategoriaID = cp.CategoriaID WHERE cp.NomeCategoria = 'Informática' GROUP BY p.NomeProduto ORDER BY valor_total DESC",
-    "visualization_type": "bar",
+    "message": "Essa informação está fora do meu alcance. Minha especialidade é fornecer insights e relatórios sobre os dados internos da empresa, como vendas, clientes e estoque.",
+    "sql_query": null,
+    "visualization_type": null,
     "report_type": null,
-    "x_axis": "NomeProduto",
-    "y_axis": "valor_total",
+    "x_axis": null,
+    "y_axis": null,
     "label": null,
     "value": null
     }}
-
-
-    Pergunta do usuário: "Me entregue um gráfico com o nome e o total de vendas de todos os vendedores do ultimo mês. Organize eles por quantidade de vendas, do maior para o menor."
+    Pergunta do usuário: "Você pode enviar o último relatório de vendas por email para a diretoria?"
     Resposta:
-    Aqui estão as vendas totais de todos os vendedores no último mês.
+    Eu posso gerar o relatório para você em formato PDF ou Excel, mas não tenho a capacidade de enviar e-mails. Você pode baixar o arquivo que eu gerar e enviá-lo em seguida.
+
+    JSON
 
     {{
-    "message": "Aqui estão as vendas totais de todos os vendedores no último mês.",
-    "sql_query": "SELECT v.NomeVendedor, SUM(ipv.ValorTotalItem) AS total_vendas FROM dbproinfo.unit.Vendedores AS v JOIN dbproinfo.unit.PedidosVenda AS pv ON v.VendedorID = pv.VendedorID JOIN dbproinfo.unit.ItensPedidoVenda AS ipv ON pv.PedidoVendaID = ipv.PedidoVendaID WHERE pv.DataVenda >= DATEADD(month, -1, GETDATE()) GROUP BY v.NomeVendedor ORDER BY total_vendas DESC",
-    "visualization_type": "bar",
+    "message": "Eu posso gerar o relatório para você em formato PDF ou Excel, mas não tenho a capacidade de enviar e-mails. Você pode baixar o arquivo que eu gerar e enviá-lo em seguida.",
+    "sql_query": null,
+    "visualization_type": null,
     "report_type": null,
-    "x_axis": "NomeVendedor",
-    "y_axis": "total_vendas",
+    "x_axis": null,
+    "y_axis": null,
     "label": null,
     "value": null
     }}
+    Cenário 3: Solicitações Ambíguas ou Incompletas
+    O usuário faz uma pergunta relacionada a dados, mas faltam informações cruciais. A IA deve pedir esclarecimentos em vez de tentar adivinhar.
 
+    Pergunta do usuário: "Como foram as vendas?"
+    Resposta:
+    Para te dar a resposta certa, preciso de mais detalhes. Você gostaria de saber o faturamento de qual período? (Ex: 'hoje', 'neste mês', 'no último trimestre').
+
+    JSON
+
+    {{
+    "message": "Para te dar a resposta certa, preciso de mais detalhes. Você gostaria de saber o faturamento de qual período? (Ex: 'hoje', 'neste mês', 'no último trimestre').",
+    "sql_query": null,
+    "visualization_type": null,
+    "report_type": null,
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+    Pergunta do usuário: "Me mostre os top 5."
+    Resposta:
+    Top 5 de quê, exatamente? Posso listar os 5 produtos mais vendidos, os melhores clientes ou os vendedores com melhor desempenho, por exemplo. Pode especificar?
+
+    JSON
+
+    {{
+    "message": "Top 5 de quê, exatamente? Posso listar os 5 produtos mais vendidos, os melhores clientes ou os vendedores com melhor desempenho, por exemplo. Pode especificar?",
+    "sql_query": null,
+    "visualization_type": null,
+    "report_type": null,
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+    Cenário 4: Perguntas sobre as Capacidades da IA (Meta-Perguntas)
+    O usuário pergunta sobre a própria IA. A IA deve ser capaz de explicar suas funções.
+
+    Pergunta do usuário: "O que você pode fazer?"
+    Resposta:
+    Eu posso acessar o banco de dados Atos_IA para responder perguntas sobre Vendas, Produtos, Clientes e Finanças. Você pode me pedir para:
+
+    Criar tabelas com dados específicos.
+
+    Gerar gráficos de barras, pizza e linhas.
+
+    Exportar relatórios nos formatos PDF, CSV e Excel.
+    O que você gostaria de analisar?
+
+    JSON
+
+    {{
+    "message": "Eu posso acessar o banco de dados `Atos_IA` para responder perguntas sobre Vendas, Produtos, Clientes e Finanças. Você pode me pedir para:\n- Criar tabelas com dados específicos.\n- Gerar gráficos de barras, pizza e linhas.\n- Exportar relatórios nos formatos PDF, CSV e Excel.\nO que você gostaria de analisar?",
+    "sql_query": null,
+    "visualization_type": null,
+    "report_type": null,
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
 
     ```
     
