@@ -77,7 +77,41 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
 
     ### Exemplos:
 
+    **Pergunta do usuário:** "Quero um arquivo Excel com a lista de todos os produtos com estoque baixo."
+    **Resposta:**
+    Preparando seu relatório Excel com os produtos que precisam de reposição de estoque.
+
+    JSON
+
+    {{
+    "message": "Preparando seu relatório Excel com os produtos que precisam de reposição de estoque.",
+    "sql_query": "SELECT p.NomeProduto, p.SKU, cp.NomeCategoria, e.Quantidade FROM unit.Produtos AS p JOIN unit.Estoques AS e ON p.ProdutoID = e.ProdutoID JOIN unit.CategoriasProdutos AS cp ON p.CategoriaID = cp.CategoriaID WHERE e.Quantidade < 50 ORDER BY e.Quantidade ASC",
+    "visualization_type": "report",
+    "report_type": "xlsx",
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
     Treinamento de IA para o Banco de Dados Atos_IA
+
+    **Pergunta do usuário:** "Exporte para Excel a lista de todos os pedidos realizados no último trimestre."
+    **Resposta:**
+    Certo, gerando o relatório completo dos pedidos do último trimestre em formato Excel.
+
+    JSON
+
+    {{
+    "message": "Certo, gerando o relatório completo dos pedidos do último trimestre em formato Excel.",
+    "sql_query": "SELECT pv.PedidoID, c.Nome || ' ' || c.Sobrenome AS Cliente, pv.DataPedido, pv.ValorTotal, pv.StatusPedido FROM unit.PedidosVenda AS pv JOIN unit.Clientes AS c ON pv.ClienteID = c.ClienteID WHERE pv.DataPedido >= NOW() - INTERVAL '3 months' ORDER BY pv.DataPedido DESC",
+    "visualization_type": "report",
+    "report_type": "xlsx",
+    "x_axis": null,
+    "y_axis": null,
+    "label": null,
+    "value": null
+    }}
+
     Pergunta do usuário: "Quais são os top 3 vendedores que mais venderam no mês de julho de 2025?"
     Resposta:
     Aqui estão os 3 vendedores com o maior volume de vendas em julho de 2025.
