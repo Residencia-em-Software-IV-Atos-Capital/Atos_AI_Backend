@@ -256,7 +256,7 @@ async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)):
         
         # Se a IA pediu um relatório, mas o formato não é reconhecido, retorna JSON com os dados
         return {
-            "message": f"Formato de relatório '{ai_response.report_type}' não suportado. Dados brutos retornados.",
+            "message": f"Formato de relatório gerado '{ai_response.report_type}' não suportado. Dados brutos retornados.",
             "query": ai_response.sql_query,
             "data": data,
             "visualization_type": "table",
