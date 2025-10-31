@@ -2,8 +2,10 @@ fastapi
 uvicorn
 google-generativeai
 sqlalchemy
+reportlab
 psycopg2-binary
 python-dotenv
+openpyxl
 pandas
 pyodbc
 gunicorn
