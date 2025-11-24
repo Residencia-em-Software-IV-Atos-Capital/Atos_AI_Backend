@@ -9,3 +9,4 @@ openpyxl
 pandas
 pyodbc
 gunicorn
+asyncpg
