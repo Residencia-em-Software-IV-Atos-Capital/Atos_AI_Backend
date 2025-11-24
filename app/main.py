@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import data_routes
 
 app = FastAPI()
 
-# Configuração de CORS
+# Configuracao de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],          # ou ["http://localhost:3000"] se preferir restringir
@@ -18,4 +19,4 @@ app.include_router(data_routes.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "API de BI com IA. Use o endpoint /analyze para começar."}
+    return {"message": "API de BI com IA. Use o endpoint /analyze para comecar."}
