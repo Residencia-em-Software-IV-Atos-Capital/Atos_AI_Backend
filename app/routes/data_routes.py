@@ -1,57 +1,60 @@
+# -*- coding: utf-8 -*-
 from fastapi import APIRouter, Query, Depends, HTTPException, status
+import asyncio
+import google.generativeai as genai
+from app.core.config import settings
 from fastapi.responses import StreamingResponse
 from app.models.request_models import QueryRequest
 from app.services.ai_service import generate_ai_response
-from app.services.db_service import execute_sql_query, GLOBAL_ASYNC_ENGINE # Importa o engine e a função de execução
-from sqlalchemy.ext.asyncio import AsyncSession # Importa o tipo de sessão
+from app.services.db_service import execute_sql_query, GLOBAL_ASYNC_ENGINE
+from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy import text
 import pandas as pd
 import io
 import os
 from dotenv import load_dotenv
 import asyncio
 
-# Importações do ReportLab CORRIGIDAS
+# Importacoes do ReportLab CORRIGIDAS
 from reportlab.lib.pagesizes import letter, A4 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-import re # <-- Garanta que 're' (regex) esteja importado
+import re
 
-# --- Configuração do Ambiente ---
+# --- Configuracao do Ambiente ---
 load_dotenv()
-db_connection_string = os.getenv("DATABASE_URL")
-
-if not db_connection_string:
-    raise ValueError("A variável de ambiente 'DATABASE_URL' não está definida.")
+db_connection_string = os.getenv("DATABASE_URL") or ""
 
 router = APIRouter()
 
-# --- FUNÇÃO AUXILIAR NECESSÁRIA PARA O PDF ---
+# --- FUNCAO AUXILIAR NECESSARIA PARA O PDF ---
 def _safe_filename(text: str) -> str:
     """Garante que o nome do arquivo seja seguro."""
     text = text.replace(" ", "_")
-    # Usa o módulo 're' para remover caracteres inválidos
+# Usa o modulo 're' para remover caracteres invalidos
     return re.sub(r'[^\w\-_\.]', '', text)[:50] 
 # -----------------------------------------------------------------
 
 
-# --- Dependência para Injeção de Sessão Assíncrona ---
+# --- Dependencia para Injecao de Sessao Assincrona ---
 async def get_db():
     if GLOBAL_ASYNC_ENGINE is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="O motor assíncrono do banco de dados não foi inicializado."
+            detail="O motor assincrono do banco de dados nao foi inicializado."
         )
-    # Abre uma nova conexão assíncrona para cada requisição
-    async with GLOBAL_ASYNC_ENGINE.begin() as connection:
+    # Abre uma nova conexao assincrona para cada requisicao
+    async with GLOBAL_ASYNC_ENGINE.connect() as connection:
+        await connection.execute(text("SET search_path TO unit"))
         yield connection
 
 
-# --- Funções Auxiliares (Geração de Arquivo) ---
+# --- Funcoes Auxiliares (Geracao de Arquivo) ---
 
 def generate_csv_response(data: list) -> StreamingResponse:
-    """Converte a lista de dicionários em um arquivo CSV e retorna um StreamingResponse."""
+    """Converte a lista de dicionarios em um arquivo CSV e retorna um StreamingResponse."""
     df = pd.DataFrame(data)
     buffer = io.StringIO()
     df.to_csv(buffer, index=False)
@@ -70,7 +73,7 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
     df = pd.DataFrame(data or [])
     buffer = io.BytesIO()
 
-    # Página e margens
+    # Pagina e margens
     page_size = A4 
     left, right, top, bottom = 24, 24, 36, 36
 
@@ -89,8 +92,8 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
 
     elements = []
 
-    # Título
-    title_text = title or "Relatório BI"
+    # Titulo
+    title_text = title or "Relatorio BI"
     elements.append(Paragraph(title_text, title_style))
     elements.append(Spacer(1, 0.25 * inch))
 
@@ -105,7 +108,7 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
             headers={"Content-Disposition": f"attachment; filename={_safe_filename(title_text)}.pdf"}
         )
 
-    # Construção dos dados para a tabela (tudo como string)
+    # Construcao dos dados para a tabela (tudo como string)
     headers = [str(c) for c in df.columns.tolist()]
     rows = [
         [("" if pd.isna(v) else str(v)) for v in row]
@@ -113,7 +116,7 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
     ]
     table_data = [headers] + rows
 
-    # Cálculo de larguras de coluna para caber na página
+    # Calculo de larguras de coluna para caber na pagina
     available_width = page_size[0] - left - right
     font_size_body = 8
     avg_char_width = font_size_body * 0.55
@@ -156,7 +159,7 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
 
     elements.append(table)
 
-    # Constrói o PDF
+    # Constroi o PDF
     try:
         doc.build(elements)
     except Exception as e:
@@ -186,7 +189,7 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
 
 def generate_xlsx_response(data: list, title: str) -> StreamingResponse:
     """
-    Gera um XLSX com largura de coluna ajustada e cabeçalho congelado.
+    Gera um XLSX com largura de coluna ajustada e cabecalho congelado.
     """
     df = pd.DataFrame(data or [])
     buffer = io.BytesIO()
@@ -213,15 +216,15 @@ def generate_xlsx_response(data: list, title: str) -> StreamingResponse:
 # --- Rotas da API ---
 
 @router.post("/analyze")
-async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)): 
+async def analyze_data(body: QueryRequest, db: AsyncConnection = Depends(get_db)):
     user_question = body.user_question
     db_schema = db_connection_string 
     
-    # 2. Gere a resposta da IA (Bloqueante/Síncrona)
-    # CORREÇÃO APLICADA: Chama a função síncrona de forma segura
+    # 2. Gere a resposta da IA (Bloqueante/Sincrona)
+    # CORRECAO APLICADA: Chama a funcao sincrona de forma segura
     ai_response = await asyncio.to_thread(generate_ai_response, user_question, db_schema)
     
-    # 3. Se não há query, retorna erro ou mensagem de texto
+    # 3. Se nao ha query, retorna erro ou mensagem de texto
     if not ai_response.sql_query:
         return {
             "message": ai_response.message,
@@ -231,39 +234,39 @@ async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)):
             "x_axis": None, "y_axis": None, "label": None, "value": None,
         }
         
-    # 4. Executa a query SQL AGORA ASSÍNCRONA
-    # NOTA: execute_sql_query DEVE ser async def e receber 'db' como parâmetro,
-    # caso contrário, esta linha também causaria um erro.
+    # 4. Executa a query SQL AGORA ASSINCRONA
+    # NOTA: execute_sql_query DEVE ser async def e receber 'db' como parametro,
+    # caso contrario, esta linha tambem causaria um erro.
     data = await execute_sql_query(db, ai_response.sql_query) 
     
-    # 5. Verifica se é um relatório e retorna o arquivo apropriado
+    # 5. Verifica se e um relatorio e retorna o arquivo apropriado
     if ai_response.visualization_type == "report":
         
         report_title = ai_response.message if ai_response.message else user_question
 
         if ai_response.report_type == "csv":
-            # Retorna o arquivo CSV (Síncrono - usa asyncio.to_thread)
+            # Retorna o arquivo CSV (Sincrono - usa asyncio.to_thread)
             return await asyncio.to_thread(generate_csv_response, data)
         
         elif ai_response.report_type == "pdf":
-            # Retorna o arquivo PDF (Síncrono - usa asyncio.to_thread)
+            # Retorna o arquivo PDF (Sincrono - usa asyncio.to_thread)
             return await asyncio.to_thread(generate_pdf_response, data, report_title)
         
         elif ai_response.report_type == "xlsx":
-            # Retorna o arquivo XLSX (Síncrono - usa asyncio.to_thread)
-            # CORREÇÃO: Necessita de 'await' aqui.
+            # Retorna o arquivo XLSX (Sincrono - usa asyncio.to_thread)
+            # CORRECAO: Necessita de 'await' aqui.
             return await asyncio.to_thread(generate_xlsx_response, data, report_title)
         
-        # Se a IA pediu um relatório, mas o formato não é reconhecido, retorna JSON com os dados
+        # Se a IA pediu um relatorio, mas o formato nao e reconhecido, retorna JSON com os dados
         return {
-            "message": f"Formato de relatório '{ai_response.report_type}' não suportado. Dados brutos retornados.",
+            "message": f"Formato de relatorio '{ai_response.report_type}' nao suportado. Dados brutos retornados.",
             "query": ai_response.sql_query,
             "data": data,
             "visualization_type": "table",
             "x_axis": None, "y_axis": None, "label": None, "value": None,
         }
         
-    # 6. Se não for relatório (gráfico/tabela), retorna o JSON para o front-end
+    # 6. Se nao for relatorio (grafico/tabela), retorna o JSON para o front-end
     return {
         "message": ai_response.message,
         "query": ai_response.sql_query,
@@ -274,3 +277,39 @@ async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)):
         "label": ai_response.label,
         "value": ai_response.value,
     }
+
+@router.get("/health/db")
+async def health_db(db: AsyncConnection = Depends(get_db)):
+    result = await db.execute(text("SELECT 1"))
+    return {"db": (result.scalar() == 1)}
+
+@router.get("/health/ai")
+async def health_ai():
+    try:
+        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        models = await asyncio.to_thread(genai.list_models)
+        preferred = [
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-pro",
+            "gemini-pro",
+            "gemini-1.0-pro",
+        ]
+        available = [m.name for m in models if "generateContent" in getattr(m, "supported_generation_methods", [])]
+        target = None
+        for name in preferred:
+            if name in available:
+                target = name
+                break
+        if target is None and available:
+            target = available[0]
+        if not target:
+            raise RuntimeError("Nenhum modelo disponivel para generateContent")
+        model = genai.GenerativeModel(target)
+        res = await asyncio.to_thread(lambda: model.generate_content("ping"))
+        text = getattr(res, "text", None)
+        ok = bool(text) or bool(getattr(res, "candidates", None))
+        return {"ai": ok, "model": target}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

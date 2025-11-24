@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import text, inspect
@@ -5,86 +6,94 @@ from sqlalchemy.engine.base import Engine
 import os
 from dotenv import load_dotenv
 
-# 1. Carrega a URL do banco (necessário se o db_service for inicializado primeiro)
+# 1. Carrega a URL do banco (necessario se o db_service for inicializado primeiro)
 load_dotenv()
 db_connection_string = os.getenv("DATABASE_URL")
 
-# 2. CRIAÇÃO DO ENGINE GLOBAL ASSÍNCRONO
+if db_connection_string:
+    if db_connection_string.startswith("postgresql://"):
+        db_connection_string = db_connection_string.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif db_connection_string.startswith("postgres://"):
+        db_connection_string = db_connection_string.replace("postgres://", "postgresql+asyncpg://", 1)
+
+# 2. CRIACAO DO ENGINE GLOBAL ASSINCRONO
 try:
-    if not db_connection_string:
-        raise ValueError("DATABASE_URL não definida em db_service.")
-    
-    # ⚠️ MUITO IMPORTANTE: Usamos create_async_engine e o driver asyncpg (da sua URL)
-    GLOBAL_ASYNC_ENGINE = create_async_engine(
-        db_connection_string,
-        # O echo=True é útil para depuração do SQL gerado
-        pool_size=5,
-        max_overflow=10
-    )
+    if db_connection_string:
+        GLOBAL_ASYNC_ENGINE = create_async_engine(
+            db_connection_string,
+            pool_size=5,
+            max_overflow=10,
+            connect_args={
+                "server_settings": {"search_path": "unit"}
+            }
+        )
+    else:
+        GLOBAL_ASYNC_ENGINE = None
 except Exception as e:
     GLOBAL_ASYNC_ENGINE = None
-    print(f"ERRO CRÍTICO NA INICIALIZAÇÃO DO ENGINE ASSÍNCRONO: {e}")
+    print(f"ERRO CRITICO NA INICIALIZACAO DO ENGINE ASSINCRONO: {e}")
 
-# 3. FUNÇÕES DE SERVIÇO AGORA SÃO ASSÍNCRONAS
+# 3. FUNCOES DE SERVICO AGORA SAO ASSINCRONAS
 
 async def get_database_schema(db_url: str) -> str:
     """
-    Extrai e formata o esquema do banco de dados usando SQLAlchemy (Assíncrono).
-    Compatível com PostgreSQL/Supabase.
+    Extrai e formata o esquema do banco de dados usando SQLAlchemy (Assincrono).
+    Compativel com PostgreSQL/Supabase.
     """
     if GLOBAL_ASYNC_ENGINE is None:
-        raise Exception("O motor do banco de dados não foi inicializado corretamente.")
+        raise Exception("O motor do banco de dados nao foi inicializado corretamente.")
         
     try:
-        # Usa o motor assíncrono para conectar
+        # Usa o motor assincrono para conectar
         async with GLOBAL_ASYNC_ENGINE.connect() as connection:
-            # NOTA: A introspecção no SQLAlchemy Assíncrono é um pouco mais complexa e
-            # requer o uso de run_in_threadpool ou funções específicas de introspecção.
-            # Para este erro, vamos simplificar a conexão para a execução de queries.
+            # NOTA: A introspeccao no SQLAlchemy Assincrono e um pouco mais complexa e
+            # requer o uso de run_in_threadpool ou funcoes especificas de introspeccao.
+            # Para este erro, vamos simplificar a conexao para a execucao de queries.
             
-            # Vamos usar uma query SQL nativa para introspecção simples se necessário
-            # mas mantemos o código original mais próximo para esta correção.
+            # Vamos usar uma query SQL nativa para introspeccao simples se necessario
+            # mas mantemos o codigo original mais proximo para esta correcao.
             
-            # A introspecção não é nativamente assíncrona, mas o core.run_sync pode ajudar.
-            # No entanto, para fins de correção de erro de execução, a função não será mais chamada.
-            # Se for chamada, terá que ser envolvida pelo run_in_threadpool na rota.
+            # A introspeccao nao e nativamente assincrona, mas o core.run_sync pode ajudar.
+            # No entanto, para fins de correcao de erro de execucao, a funcao nao sera mais chamada.
+            # Se for chamada, tera que ser envolvida pelo run_in_threadpool na rota.
             pass
 
-        # Deixamos o retorno do esquema como está, mas o fetch será feito na rota
-        # ou a IA se baseará na string de conexão se você não quiser fazer introspecção.
+        # Deixamos o retorno do esquema como esta, mas o fetch sera feito na rota
+        # ou a IA se baseara na string de conexao se voce nao quiser fazer introspeccao.
         # Retornamos uma string placeholder para evitar erros por enquanto.
         return "Esquema de BD em PostgreSQL com driver asyncpg."
 
     except Exception as e:
-        raise Exception(f"Erro de conexão ou ao extrair o esquema: {e}") 
+        raise Exception(f"Erro de conexao ou ao extrair o esquema: {e}") 
 
-async def execute_sql_query(db_url: str, sql_query: str) -> list:
+async def execute_sql_query(conn, sql_query: str) -> list:
     """
-    Executa a consulta SQL assíncrona e retorna os dados como uma lista de dicionários.
+    Executa a consulta SQL assincrona e retorna os dados como uma lista de dicionarios.
     """
     if GLOBAL_ASYNC_ENGINE is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="O motor do banco de dados não foi inicializado corretamente.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="O motor do banco de dados nao foi inicializado corretamente.")
         
     try:
-        # A validação de segurança é mantida aqui
+        # A validacao de seguranca e mantida aqui
         if any(keyword in sql_query.upper() for keyword in ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE"]):
-            raise ValueError("Comandos não permitidos na consulta SQL.")
+            raise ValueError("Comandos nao permitidos na consulta SQL.")
 
-        # Usa o motor assíncrono para obter a conexão e executar a query
-        async with GLOBAL_ASYNC_ENGINE.begin() as connection:
-            result = await connection.execute(text(sql_query))
-            
-            # Não é necessário fazer o commit para SELECTs, mas 'begin' garante o contexto
-            
+        # Execute usando a AsyncConnection fornecida; caso contrario, abra uma nova
+        if conn is None:
+            async with GLOBAL_ASYNC_ENGINE.connect() as connection:
+                result = await connection.execute(text(sql_query))
+                columns = result.keys()
+                rows = [dict(zip(columns, row)) for row in result.all()]
+                return rows
+        else:
+            result = await conn.execute(text(sql_query))
             columns = result.keys()
-            # result.all() é a forma assíncrona de result.fetchall()
             rows = [dict(zip(columns, row)) for row in result.all()]
-            
-        return rows
+            return rows
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao executar a consulta SQL: {e}")
 
 def get_db_session():
-    """Dependência para obter uma sessão assíncrona, se necessário."""
-    # Embora não esteja sendo usada na rota 'analyze', é o padrão de FastAPI.
+    """Dependencia para obter uma sessao assincrona, se necessario."""
+    # Embora nao esteja sendo usada na rota 'analyze', e o padrao de FastAPI.
     return GLOBAL_ASYNC_ENGINE.begin()
