@@ -1,0 +1,6 @@
+GOOGLE_API_KEY="AIzaSyDtf5mLGhVwOsKgBFejRLKDcL4eOz3dLtI"
+DATABASE_URL="postgresql+asyncpg://usr_unit:74123698@unit@154.38.168.112:5432/unit"
+# DATABASE_URL="postgresql+asyncpg://neondb_owner:npg_IzoURT9xkV4S@ep-tight-math-acajhpt3-pooler.sa-east-1.aws.neon.tech/Atos_IA"
+# DATABASE_URL="postgresql+asyncpg://neondb_owner:npg_IzoURT9xkV4S@ep-tight-math-acajhpt3-pooler.sa-east-1.aws.neon.tech/Atos_IA?sslmode=require&channel_binding=require"
+# DATABASE_URL="postgresql+asyncpg://postgres.diftiqkbhxuzuucsntat:fQRgmCWI7H53Oxcz@aws-1-sa-east-1.pooler.supabase.com:5432/postgres"
+# postgresql://neondb_owner:npg_IzoURT9xkV4S@ep-tight-math-acajhpt3-pooler.sa-east-1.aws.neon.tech/Atos_IA?sslmode=require&channel_binding=require
