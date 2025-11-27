@@ -10,13 +10,13 @@ import os
 from dotenv import load_dotenv
 import asyncio
 
-# Importações do ReportLab CORRIGIDAS
+# Importações do ReportLab
 from reportlab.lib.pagesizes import letter, A4 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-import re # <-- Garanta que 're' (regex) esteja importado
+import re # Módulo regex
 
 # --- Configuração do Ambiente ---
 load_dotenv()
@@ -64,9 +64,7 @@ def generate_csv_response(data: list) -> StreamingResponse:
     )
 
 def generate_pdf_response(data: list, title: str) -> StreamingResponse:
-    """
-    Gera um PDF robusto:
-    """
+    """Gera um PDF robusto."""
     df = pd.DataFrame(data or [])
     buffer = io.BytesIO()
 
@@ -185,9 +183,7 @@ def generate_pdf_response(data: list, title: str) -> StreamingResponse:
     )
 
 def generate_xlsx_response(data: list, title: str) -> StreamingResponse:
-    """
-    Gera um XLSX com largura de coluna ajustada e cabeçalho congelado.
-    """
+    """Gera um XLSX com largura de coluna ajustada e cabeçalho congelado."""
     df = pd.DataFrame(data or [])
     buffer = io.BytesIO()
 
@@ -210,145 +206,144 @@ def generate_xlsx_response(data: list, title: str) -> StreamingResponse:
     )
 
 # -----------------------------------------------------------------
-# --- NOVAS FUNÇÕES AUXILIARES PARA GERAÇÃO DE DADOS DE DASHBOARD ---
+# --- NOVAS ROTAS ESTÁTICAS (GET) SEM USO DE IA (Atualizadas para PostgreSQL) ---
 # -----------------------------------------------------------------
 
-async def _generate_kpi_data(user_question: str, db: AsyncSession) -> dict:
-    """Gera dados de KPI a partir da pergunta do usuário."""
-    # Usando a variável de ambiente como o 'schema' de contexto, como na rota /analyze
-    db_schema = db_connection_string 
+## 🔑 Rota Estática para KPI
+@router.get("/kpi/static")
+async def get_static_kpi(db: AsyncSession = Depends(get_db)):
+    """
+    Retorna 3 KPIs: Total de vendas no mês, Quantidade produtos vendidos, e Ticket médio.
+    Corrigido para PostgreSQL.
+    """
+    static_query = """
+    WITH MonthlySales AS (
+        SELECT SUM(valortotal) AS total_sales
+        FROM unit.pedidosvenda
+        WHERE TO_CHAR(datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
+    ),
+    TotalItemsSold AS (
+        SELECT SUM(t2.quantidade) AS total_items
+        FROM unit.pedidosvenda t1
+        JOIN unit.itenspedidovenda t2 ON t1.id = t2.pedidovendaid 
+        WHERE TO_CHAR(t1.datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
+    ),
+    AverageTicket AS (
+        SELECT AVG(valortotal) AS avg_ticket
+        FROM unit.pedidosvenda
+        WHERE TO_CHAR(datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
+    )
+    SELECT 
+        COALESCE((SELECT total_sales FROM MonthlySales), 0) AS total_vendas_mes,
+        COALESCE((SELECT total_items FROM TotalItemsSold), 0) AS quantidade_produtos_vendidos,
+        COALESCE((SELECT avg_ticket FROM AverageTicket), 0) AS ticket_medio;
+    """
     
-    # PROMPT APRIMORADO: Instruindo a IA a retornar UM ÚNICO VALOR agregado.
-    kpi_prompt = f"{user_question}. Gere a query SQL que resulte em UM ÚNICO VALOR (SUM, AVG, COUNT, MAX, MIN) relevante para este KPI. Seu retorno de mensagem deve resumir este valor. Formato: KPI."
-    ai_response = await asyncio.to_thread(generate_ai_response, kpi_prompt, db_schema)
-
-    if not ai_response.sql_query:
-        return {
-            "type": "kpi",
-            "status": "error",
-            "message": "Não foi possível gerar a consulta SQL para KPI.",
-        }
-
-    # Executa a consulta SQL
-    data = await execute_sql_query(db, ai_response.sql_query)
-
-    # Lógica de extração de valor para KPI
-    value = None
-    if data and len(data) > 0:
-        first_row = data[0]
-        first_value = list(first_row.values())[0] if isinstance(first_row, dict) else None
-        value = first_value
+    data = await execute_sql_query(db, static_query)
+    
+    kpi_values = {}
+    if data and isinstance(data[0], dict):
+        kpi_values = data[0]
 
     return {
         "type": "kpi",
         "status": "success",
-        "message": ai_response.message or "Indicador gerado com sucesso.",
-        "query": ai_response.sql_query,
-        "value": value,
-        "data": data
+        "message": "KPIs Estáticos: Vendas do Mês, Produtos Vendidos e Ticket Médio.",
+        "query": static_query,
+        "kpis": kpi_values,
+        "data": data # Retorna os dados brutos também
     }
 
 
-async def _generate_bar_data(user_question: str, db: AsyncSession) -> dict:
-    """Gera dados para Gráfico de Barras."""
-    db_schema = db_connection_string
-
-    # PROMPT APRIMORADO: Instruindo a IA a gerar dados agrupados, especificando eixos.
-    bar_prompt = f"{user_question}. Gere a query SQL para um gráfico de barras. A query deve retornar duas colunas: a primeira como EIXO X (categorias) e a segunda como EIXO Y (valores). Formato: BAR."
-    ai_response = await asyncio.to_thread(generate_ai_response, bar_prompt, db_schema)
-
-    if not ai_response.sql_query:
-        return {
-            "type": "bar",
-            "status": "error",
-            "message": "Não foi possível gerar a consulta SQL para gráfico de barras.",
-        }
-
-    data = await execute_sql_query(db, ai_response.sql_query)
+## 📊 Rota Estática para Gráfico de Barras
+@router.get("/bar/static")
+async def get_static_bar_chart(db: AsyncSession = Depends(get_db)):
+    """
+    Retorna dados estáticos para Gráfico de Barras: Vendas nos meses daquele ano.
+    Corrigido para PostgreSQL.
+    """
+    # Query SQL estática: Vendas por mês no ano atual (PostgreSQL)
+    static_query = """
+    SELECT 
+        TO_CHAR(datapedido::date, 'YYYY-MM') AS month_label, 
+        SUM(valortotal) AS total_sales
+    FROM unit.pedidosvenda
+    WHERE 
+        TO_CHAR(datapedido::date, 'YYYY') = TO_CHAR(NOW()::date, 'YYYY')
+    GROUP BY month_label
+    ORDER BY month_label;
+    """
+    
+    data = await execute_sql_query(db, static_query)
 
     return {
         "type": "bar",
         "status": "success",
-        "message": ai_response.message or "Gráfico de barras gerado com sucesso.",
-        "query": ai_response.sql_query,
+        "message": "Gráfico Estático: Vendas Totais nos Meses do Ano Atual",
+        "query": static_query,
         "data": data,
-        "x_axis": ai_response.x_axis,
-        "y_axis": ai_response.y_axis,
-        "label": ai_response.label,
-        "value": ai_response.value
+        "x_axis": "Mês/Ano",
+        "y_axis": "Total de Vendas",
     }
 
 
-async def _generate_pie_data(user_question: str, db: AsyncSession) -> dict:
-    """Gera dados para Gráfico de Pizza."""
-    db_schema = db_connection_string
-
-    # PROMPT APRIMORADO: Instruindo a IA a gerar dados para fatias (label e valor).
-    pie_prompt = f"{user_question}. Gere a query SQL para um gráfico de pizza. A query deve retornar duas colunas: a primeira para o rótulo (LABEL) e a segunda para o valor correspondente (VALUE). Formato: PIE."
-    ai_response = await asyncio.to_thread(generate_ai_response, pie_prompt, db_schema)
-
-    if not ai_response.sql_query:
-        return {
-            "type": "pie",
-            "status": "error",
-            "message": "Não foi possível gerar a consulta SQL para gráfico de pizza.",
-        }
-
-    data = await execute_sql_query(db, ai_response.sql_query)
+## 🍕 Rota Estática para Gráfico de Pizza
+@router.get("/pie/static")
+async def get_static_pie_chart(db: AsyncSession = Depends(get_db)):
+    """
+    Retorna dados estáticos para Gráfico de Pizza: Os 5 melhores clientes (maior valor comprado).
+    Também inclui dados para Vendedores (quem vendeu mais, decrescente).
+    Corrigido para PostgreSQL (minúsculas).
+    """
+    # Query SQL estática 1: Top 5 Clientes por Valor Comprado (PostgreSQL)
+    top_clients_query = """
+    SELECT
+        c.nome AS client_name, 
+        SUM(o.valortotal) AS value_purchased,
+        COUNT(o.id) AS total_orders
+    FROM unit.pedidosvenda o
+    JOIN unit.clientes c ON o.clienteid = c.id
+    GROUP BY c.nome
+    ORDER BY value_purchased DESC
+    LIMIT 5;
+    """
+    
+    # Query SQL estática 2: Vendedores por Valor Total Vendido (Decrescente) (PostgreSQL)
+    top_sellers_query = """
+    SELECT
+        e.nome AS seller_name, 
+        SUM(o.valortotal) AS total_sold
+    FROM unit.pedidosvenda o
+    JOIN unit.vendedores e ON o.vendedorid = e.id
+    GROUP BY e.nome
+    ORDER BY total_sold DESC;
+    """
+    
+    top_clients_data = await execute_sql_query(db, top_clients_query)
+    top_sellers_data = await execute_sql_query(db, top_sellers_query)
 
     return {
         "type": "pie",
         "status": "success",
-        "message": ai_response.message or "Gráfico de pizza gerado com sucesso.",
-        "query": ai_response.sql_query,
-        "data": data,
-        "label": ai_response.label,
-        "value": ai_response.value
-    }
-
-# -----------------------------------------------------------------
-# --- NOVA ROTA CONSOLIDADA PARA DASHBOARD ---
-# -----------------------------------------------------------------
-
-@router.post("/dashboard")
-async def generate_dashboard(body: QueryRequest, db: AsyncSession = Depends(get_db)):
-    """
-    Gera dados para um dashboard completo (KPI, Barras e Pizza) a partir de uma única pergunta.
-    """
-    user_question = body.user_question
-
-    # 1. Cria uma lista de tarefas assíncronas para gerar cada componente
-    tasks = [
-        _generate_kpi_data(user_question, db),
-        _generate_bar_data(user_question, db),
-        _generate_pie_data(user_question, db),
-    ]
-
-    # 2. Executa todas as tarefas concorrentemente
-    results = await asyncio.gather(*tasks)
-
-    # 3. Retorna o resultado final bem estruturado
-    return {
-        "user_query": user_question,
-        "dashboard_components": {
-            "kpi": results[0],
-            "bar_chart": results[1],
-            "pie_chart": results[2],
+        "message": "Gráfico Estático: Top 5 Clientes e Vendedores por Performance",
+        "queries": {
+            "top_clients": top_clients_query,
+            "top_sellers": top_sellers_query,
         },
-        "message": "Dashboard components generated successfully."
+        "data_clients": top_clients_data, # Dados dos 5 melhores clientes
+        "data_sellers": top_sellers_data, # Dados dos vendedores
+        "client_labels": {"name": "client_name", "value": "value_purchased", "count": "total_orders"},
+        "seller_labels": {"name": "seller_name", "value": "total_sold"},
     }
-# -----------------------------------------------------------------
-# --- ROTAS DA API ORIGINAIS (MANTIDAS INTACTAS) ---
-# -----------------------------------------------------------------
 
 
+## 🔎 Rota de Análise Original (Inalterada)
 @router.post("/analyze")
 async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)): 
     user_question = body.user_question
     db_schema = db_connection_string 
     
     # 2. Gere a resposta da IA (Bloqueante/Síncrona)
-    # CORREÇÃO APLICADA: Chama a função síncrona de forma segura
     ai_response = await asyncio.to_thread(generate_ai_response, user_question, db_schema)
     
     # 3. Se não há query, retorna erro ou mensagem de texto
@@ -361,9 +356,7 @@ async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)):
             "x_axis": None, "y_axis": None, "label": None, "value": None,
         }
         
-    # 4. Executa a query SQL AGORA ASSÍNCRONA
-    # NOTA: execute_sql_query DEVE ser async def e receber 'db' como parâmetro,
-    # caso contrário, esta linha também causaria um erro.
+    # 4. Executa a query SQL
     data = await execute_sql_query(db, ai_response.sql_query) 
     
     # 5. Verifica se é um relatório e retorna o arquivo apropriado
@@ -380,14 +373,6 @@ async def analyze_data(body: QueryRequest, db: AsyncSession = Depends(get_db)):
         
         elif ai_response.report_type == "xlsx":
             return await asyncio.to_thread(generate_xlsx_response, data, report_title)
-        
-        # AQUI FOI FEITA UMA PEQUENA CORREÇÃO LÓGICA: 
-        # as chamadas para kpi, bar e pie dentro do /analyze 
-        # não devem retornar arquivos de streaming, mas sim o JSON do analyze.
-        # Como as rotas /kpi, /bar e /pie originais foram removidas, 
-        # a checagem é simplificada ou mantida apenas para tipos de arquivo.
-        # Para evitar problemas, vou manter apenas as checagens de arquivo (csv, pdf, xlsx) 
-        # e retornar JSON para o resto, já que o foco é /dashboard.
         
         # Se a IA pediu um relatório, mas o formato não é reconhecido, retorna JSON com os dados
         return {
