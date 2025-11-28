@@ -1,3 +1,4 @@
+# -*- coding: latin-1 -*-
 import google.generativeai as genai
 import json
 import re
@@ -51,7 +52,6 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     Sua resposta deve ser uma **mensagem curta e amigável seguida por um único bloco de código JSON**, sem nenhum outro texto. A mensagem deve apresentar os resultados de forma humana e profissional.
 
     **Instruções Críticas:**
-    1.  **Aderência Absoluta ao Esquema**: Você deve usar **APENAS** as tabelas e colunas exatamente como elas aparecem no esquema de banco de dados fornecido abaixo. **Todas as tabelas estão no esquema 'unit'. Use o prefixo 'unit.' para todas as tabelas (ex: unit.Tabela).** Ignore prefixos de banco de dados antigos (como 'dbproinfo.') em qualquer exemplo que você use como referência.
     2.  **Verificação do Esquema**: **É CRÍTICO** que você verifique se cada tabela e coluna que você planeja usar na sua consulta SQL realmente existe no `{db_schema}`. **Se uma tabela ou coluna não estiver presente, você DEVE IGNORAR a parte da pergunta do usuário que a menciona e não incluí-la na consulta.**
     3.  **Performance**: Priorize consultas eficientes. Use `TOP` para limitar resultados quando solicitado, use `JOINs` para combinar dados de forma lógica, e evite subconsultas complexas.
     4.  **Segurança**: Gere **apenas consultas `SELECT`**. É estritamente proibido usar `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` ou qualquer outra instrução que altere os dados.
@@ -192,7 +192,7 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Pergunta do usuário: "Quero um arquivo CSV com todos os clientes cadastrados em 2025."
+    Pergunta do usuÃ¡rio: "Quero um arquivo CSV com todos os clientes cadastrados em 2025."
     Resposta:
     Preparando o arquivo CSV com a lista de clientes cadastrados em 2025.
 
@@ -257,7 +257,7 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Pergunta do usuário: "Preciso de um resumo financeiro em PDF do primeiro semestre de 2025, mostrando o total vendido e o total faturado."
+    Pergunta do usuÃ¡rio: "Preciso de um resumo financeiro em PDF do primeiro semestre de 2025, mostrando o total vendido e o total faturado."
     Resposta:
     Preparando seu resumo financeiro em PDF para o primeiro semestre de 2025.
 
@@ -374,7 +374,7 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Pergunta do usuário: "Bom dia!"
+    Pergunta do usuÃ¡rio: "Bom dia!"
     Resposta:
     Bom dia! Em que posso te ajudar com os dados de vendas, produtos ou clientes?
 
@@ -390,14 +390,14 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Pergunta do usuário: "Obrigado!"
+    Pergunta do usuÃ¡rio: "Obrigado!"
     Resposta:
-    De nada! Se precisar de mais alguma análise ou relatório, é só pedir.
+    De nada! Se precisar de mais alguma anÃ¡lise ou relatÃ³rio, Ã© sÃ³ pedir.
 
     JSON
 
     {{
-    "message": "De nada! Se precisar de mais alguma análise ou relatório, é só pedir.",
+    "message": "De nada! Se precisar de mais alguma anÃ¡lise ou relatÃ³rio, Ã© sÃ³ pedir.",
     "sql_query": null,
     "visualization_type": null,
     "report_type": null,
@@ -406,17 +406,17 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Cenário 2: Perguntas Fora de Escopo
-    O usuário pede algo que a IA não foi programada para fazer (opiniões, ações fora do banco de dados, conhecimento geral). A IA deve esclarecer suas limitações e redirecionar para sua função principal.
+    CenÃ¡rio 2: Perguntas Fora de Escopo
+    O usuÃ¡rio pede algo que a IA nÃ£o foi programada para fazer (opiniÃµes, aÃ§Ãµes fora do banco de dados, conhecimento geral). A IA deve esclarecer suas limitaÃ§Ãµes e redirecionar para sua funÃ§Ã£o principal.
 
-    Pergunta do usuário: "Qual a previsão do tempo para amanhã?"
+    Pergunta do usuÃ¡rio: "Qual a previsÃ£o do tempo para amanhÃ£?"
     Resposta:
-    Essa informação está fora do meu alcance. Minha especialidade é fornecer insights e relatórios sobre os dados internos da empresa, como vendas, clientes e estoque.
+    Essa informaÃ§Ã£o estÃ¡ fora do meu alcance. Minha especialidade Ã© fornecer insights e relatÃ³rios sobre os dados internos da empresa, como vendas, clientes e estoque.
 
     JSON
 
     {{
-    "message": "Essa informação está fora do meu alcance. Minha especialidade é fornecer insights e relatórios sobre os dados internos da empresa, como vendas, clientes e estoque.",
+    "message": "Essa informaÃ§Ã£o estÃ¡ fora do meu alcance. Minha especialidade Ã© fornecer insights e relatÃ³rios sobre os dados internos da empresa, como vendas, clientes e estoque.",
     "sql_query": null,
     "visualization_type": null,
     "report_type": null,
@@ -425,14 +425,14 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Pergunta do usuário: "Você pode enviar o último relatório de vendas por email para a diretoria?"
+    Pergunta do usuÃ¡rio: "VocÃª pode enviar o Ãºltimo relatÃ³rio de vendas por email para a diretoria?"
     Resposta:
-    Eu posso gerar o relatório para você em formato PDF ou Excel, mas não tenho a capacidade de enviar e-mails. Você pode baixar o arquivo que eu gerar e enviá-lo em seguida.
+    Eu posso gerar o relatÃ³rio para vocÃª em formato PDF ou Excel, mas nÃ£o tenho a capacidade de enviar e-mails. VocÃª pode baixar o arquivo que eu gerar e enviÃ¡-lo em seguida.
 
     JSON
 
     {{
-    "message": "Eu posso gerar o relatório para você em formato PDF ou Excel, mas não tenho a capacidade de enviar e-mails. Você pode baixar o arquivo que eu gerar e enviá-lo em seguida.",
+    "message": "Eu posso gerar o relatÃ³rio para vocÃª em formato PDF ou Excel, mas nÃ£o tenho a capacidade de enviar e-mails. VocÃª pode baixar o arquivo que eu gerar e enviÃ¡-lo em seguida.",
     "sql_query": null,
     "visualization_type": null,
     "report_type": null,
@@ -441,17 +441,17 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Cenário 3: Solicitações Ambíguas ou Incompletas
-    O usuário faz uma pergunta relacionada a dados, mas faltam informações cruciais. A IA deve pedir esclarecimentos em vez de tentar adivinhar.
+    CenÃ¡rio 3: SolicitaÃ§Ãµes AmbÃ­guas ou Incompletas
+    O usuÃ¡rio faz uma pergunta relacionada a dados, mas faltam informaÃ§Ãµes cruciais. A IA deve pedir esclarecimentos em vez de tentar adivinhar.
 
-    Pergunta do usuário: "Como foram as vendas?"
+    Pergunta do usuÃ¡rio: "Como foram as vendas?"
     Resposta:
-    Para te dar a resposta certa, preciso de mais detalhes. Você gostaria de saber o faturamento de qual período? (Ex: 'hoje', 'neste mês', 'no último trimestre').
+    Para te dar a resposta certa, preciso de mais detalhes. VocÃª gostaria de saber o faturamento de qual perÃ­odo? (Ex: 'hoje', 'neste mÃªs', 'no Ãºltimo trimestre').
 
     JSON
 
     {{
-    "message": "Para te dar a resposta certa, preciso de mais detalhes. Você gostaria de saber o faturamento de qual período? (Ex: 'hoje', 'neste mês', 'no último trimestre').",
+    "message": "Para te dar a resposta certa, preciso de mais detalhes. VocÃª gostaria de saber o faturamento de qual perÃ­odo? (Ex: 'hoje', 'neste mÃªs', 'no Ãºltimo trimestre').",
     "sql_query": null,
     "visualization_type": null,
     "report_type": null,
@@ -460,14 +460,14 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Pergunta do usuário: "Me mostre os top 5."
+    Pergunta do usuÃ¡rio: "Me mostre os top 5."
     Resposta:
-    Top 5 de quê, exatamente? Posso listar os 5 produtos mais vendidos, os melhores clientes ou os vendedores com melhor desempenho, por exemplo. Pode especificar?
+    Top 5 de quÃª, exatamente? Posso listar os 5 produtos mais vendidos, os melhores clientes ou os vendedores com melhor desempenho, por exemplo. Pode especificar?
 
     JSON
 
     {{
-    "message": "Top 5 de quê, exatamente? Posso listar os 5 produtos mais vendidos, os melhores clientes ou os vendedores com melhor desempenho, por exemplo. Pode especificar?",
+    "message": "Top 5 de quÃª, exatamente? Posso listar os 5 produtos mais vendidos, os melhores clientes ou os vendedores com melhor desempenho, por exemplo. Pode especificar?",
     "sql_query": null,
     "visualization_type": null,
     "report_type": null,
@@ -476,24 +476,24 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
     "label": null,
     "value": null
     }}
-    Cenário 4: Perguntas sobre as Capacidades da IA (Meta-Perguntas)
-    O usuário pergunta sobre a própria IA. A IA deve ser capaz de explicar suas funções.
+    CenÃ¡rio 4: Perguntas sobre as Capacidades da IA (Meta-Perguntas)
+    O usuÃ¡rio pergunta sobre a prÃ³pria IA. A IA deve ser capaz de explicar suas funÃ§Ãµes.
 
-    Pergunta do usuário: "O que você pode fazer?"
+    Pergunta do usuÃ¡rio: "O que vocÃª pode fazer?"
     Resposta:
-    Eu posso acessar o banco de dados Atos_IA para responder perguntas sobre Vendas, Produtos, Clientes e Finanças. Você pode me pedir para:
+    Eu posso acessar o banco de dados Atos_IA para responder perguntas sobre Vendas, Produtos, Clientes e FinanÃ§as. VocÃª pode me pedir para:
 
-    Criar tabelas com dados específicos.
+    Criar tabelas com dados especÃ­ficos.
 
-    Gerar gráficos de barras, pizza e linhas.
+    Gerar grÃ¡ficos de barras, pizza e linhas.
 
-    Exportar relatórios nos formatos PDF, CSV e Excel.
-    O que você gostaria de analisar?
+    Exportar relatÃ³rios nos formatos PDF, CSV e Excel.
+    O que vocÃª gostaria de analisar?
 
     JSON
 
     {{
-    "message": "Eu posso acessar o banco de dados `Atos_IA` para responder perguntas sobre Vendas, Produtos, Clientes e Finanças. Você pode me pedir para:\n- Criar tabelas com dados específicos.\n- Gerar gráficos de barras, pizza e linhas.\n- Exportar relatórios nos formatos PDF, CSV e Excel.\nO que você gostaria de analisar?",
+    "message": "Eu posso acessar o banco de dados `Atos_IA` para responder perguntas sobre Vendas, Produtos, Clientes e FinanÃ§as. VocÃª pode me pedir para:\n- Criar tabelas com dados especÃ­ficos.\n- Gerar grÃ¡ficos de barras, pizza e linhas.\n- Exportar relatÃ³rios nos formatos PDF, CSV e Excel.\nO que vocÃª gostaria de analisar?",
     "sql_query": null,
     "visualization_type": null,
     "report_type": null,
@@ -505,8 +505,8 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
 
     ```
     
-    ### Início da Sua Tarefa
-    **Pergunta do usuário:** '{user_question}'
+    ### InÃ­cio da Sua Tarefa
+    **Pergunta do usuÃ¡rio:** '{user_question}'
     
     """
     
@@ -516,8 +516,8 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
         if response.prompt_feedback:
             reason = response.prompt_feedback.block_reason
             return AIResponseSchema(
-                message="A sua pergunta foi bloqueada por razões de segurança. Por favor, reformule sua pergunta.",
-                sql_query="-- A IA bloqueou a pergunta do usuário. Não foi possível gerar a consulta.",
+                message="A sua pergunta foi bloqueada por razÃµes de seguranÃ§a. Por favor, reformule sua pergunta.",
+                sql_query="-- A IA bloqueou a pergunta do usuÃ¡rio. NÃ£o foi possÃ­vel gerar a consulta.",
                 visualization_type="report",
                 x_axis=None,
                 y_axis=None,
@@ -527,14 +527,14 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
 
         full_response = response.text.strip()
         
-        # Encontra o início do bloco de código JSON
+        # Encontra o inÃ­cio do bloco de cÃ³digo JSON
         json_start_index = full_response.find('```json')
         
         if json_start_index == -1:
-            # Se não encontrar o bloco JSON, assume que a resposta inteira é a mensagem de erro da IA
+            # Se nÃ£o encontrar o bloco JSON, assume que a resposta inteira Ã© a mensagem de erro da IA
             return AIResponseSchema(
                 message=full_response,
-                sql_query="-- Não foi possível gerar a consulta. Por favor, reformule sua pergunta.",
+                sql_query="-- NÃ£o foi possÃ­vel gerar a consulta. Por favor, reformule sua pergunta.",
                 visualization_type="report",
                 x_axis=None,
                 y_axis=None,
@@ -549,18 +549,18 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
         # Tenta parsear o JSON
         data = json.loads(json_content)
         
-        # Adiciona a mensagem extraída ao dicionário de dados
+        # Adiciona a mensagem extraÃ­da ao dicionÃ¡rio de dados
         data['message'] = message_text
         
         # Retorna o objeto validado pelo Pydantic
         return AIResponseSchema(**data)
     
     except json.JSONDecodeError as e:
-        # Se a IA retornou um JSON inválido, criamos uma resposta de erro estruturada.
+        # Se a IA retornou um JSON invÃ¡lido, criamos uma resposta de erro estruturada.
         print(f"Erro ao decodificar JSON da IA: {e}. Resposta recebida: {full_response}")
         return AIResponseSchema(
             message="Ocorreu um erro ao processar a resposta da IA. Por favor, tente novamente ou reformule a sua pergunta.",
-            sql_query="-- A IA não retornou um JSON válido.",
+            sql_query="-- A IA nÃ£o retornou um JSON vÃ¡lido.",
             visualization_type="table",
             x_axis=None,
             y_axis=None,
@@ -568,5 +568,5 @@ def generate_ai_response(user_question: str, db_schema: str) -> AIResponseSchema
             value=None,
         )
     except Exception as e:
-        # Erro genérico para outros problemas (conexão, etc.)
+        # Erro genÃ©rico para outros problemas (conexÃ£o, etc.)
         raise HTTPException(status_code=500, detail=f"Erro ao obter resposta da IA: {e}")
