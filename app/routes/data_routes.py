@@ -14,7 +14,7 @@ import io
 import os
 from dotenv import load_dotenv
 import asyncio
-
+from sqlalchemy.ext.asyncio import AsyncSession
 # Importacoes do ReportLab CORRIGIDAS
 from reportlab.lib.pagesizes import letter, A4 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
