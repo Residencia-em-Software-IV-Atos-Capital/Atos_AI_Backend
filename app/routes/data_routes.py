@@ -218,25 +218,31 @@ async def get_static_kpi(db: AsyncSession = Depends(get_db)):
     """
     static_query = """
     WITH MonthlySales AS (
-        SELECT SUM(valortotal) AS total_sales
-        FROM unit.pedidosvenda
-        WHERE TO_CHAR(datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
+    -- Total de Vendas no Mês
+    SELECT SUM(valortotal) AS total_sales
+    FROM unit.pedidosvenda
+    -- Condição de Mês Corrente
+    WHERE TO_CHAR(datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
     ),
     TotalItemsSold AS (
-        SELECT SUM(t2.quantidade) AS total_items
-        FROM unit.pedidosvenda t1
-        JOIN unit.itenspedidovenda t2 ON t1.id = t2.pedidovendaid 
-        WHERE TO_CHAR(t1.datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
+    -- Quantidade de Produtos Vendidos no Mês
+    SELECT SUM(t2.quantidade) AS total_items
+    FROM unit.pedidosvenda t1
+    -- CORREÇÃO FINAL: Usando a chave primária correta 't1.pedidoid' 
+    -- para se ligar à chave estrangeira 't2.pedidoid'
+    JOIN unit.itenspedidovenda t2 ON t1.pedidoid = t2.pedidoid 
+    WHERE TO_CHAR(t1.datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
     ),
     AverageTicket AS (
-        SELECT AVG(valortotal) AS avg_ticket
-        FROM unit.pedidosvenda
-        WHERE TO_CHAR(datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
+    -- Ticket Médio (média do valor total dos pedidos no mês)
+    SELECT AVG(valortotal) AS avg_ticket
+    FROM unit.pedidosvenda
+    WHERE TO_CHAR(datapedido::date, 'YYYY-MM') = TO_CHAR(NOW()::date, 'YYYY-MM')
     )
     SELECT 
-        COALESCE((SELECT total_sales FROM MonthlySales), 0) AS total_vendas_mes,
-        COALESCE((SELECT total_items FROM TotalItemsSold), 0) AS quantidade_produtos_vendidos,
-        COALESCE((SELECT avg_ticket FROM AverageTicket), 0) AS ticket_medio;
+    COALESCE((SELECT total_sales FROM MonthlySales), 0) AS total_vendas_mes,
+    COALESCE((SELECT total_items FROM TotalItemsSold), 0) AS quantidade_produtos_vendidos,
+    COALESCE((SELECT avg_ticket FROM AverageTicket), 0) AS ticket_medio;
     """
     
     data = await execute_sql_query(db, static_query)
@@ -297,25 +303,27 @@ async def get_static_pie_chart(db: AsyncSession = Depends(get_db)):
     """
     # Query SQL estática 1: Top 5 Clientes por Valor Comprado (PostgreSQL)
     top_clients_query = """
-    SELECT
-        c.nome AS client_name, 
-        SUM(o.valortotal) AS value_purchased,
-        COUNT(o.id) AS total_orders
-    FROM unit.pedidosvenda o
-    JOIN unit.clientes c ON o.clienteid = c.id
-    GROUP BY c.nome
-    ORDER BY value_purchased DESC
-    LIMIT 5;
-    """
+        SELECT
+            c.nome AS client_name, 
+            SUM(o.valortotal) AS value_purchased,
+            COUNT(o.pedidoid) AS total_orders -- CORREÇÃO: Usando a PK correta da tabela pedidosvenda
+        FROM unit.pedidosvenda o
+        -- CORREÇÃO: Trocando c.id por c.clienteid
+        JOIN unit.clientes c ON o.clienteid = c.clienteid 
+        GROUP BY c.nome
+        ORDER BY value_purchased DESC
+        LIMIT 5;
+        """
     
     # Query SQL estática 2: Vendedores por Valor Total Vendido (Decrescente) (PostgreSQL)
     top_sellers_query = """
     SELECT
-        e.nome AS seller_name, 
+        e.nomecompleto AS seller_name, -- CORREÇÃO: Usando 'nomecompleto' que é a coluna que contém o nome do vendedor
         SUM(o.valortotal) AS total_sold
     FROM unit.pedidosvenda o
-    JOIN unit.vendedores e ON o.vendedorid = e.id
-    GROUP BY e.nome
+    -- CORREÇÃO: Trocando e.id por e.vendedorid
+    JOIN unit.vendedores e ON o.vendedorid = e.vendedorid
+    GROUP BY e.nomecompleto -- CORREÇÃO: Agrupando pelo nome correto da coluna
     ORDER BY total_sold DESC;
     """
     
